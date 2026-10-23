@@ -1,0 +1,255 @@
+```text
+PROMPT MAESTRO DE CONSTRUCCIÓN INDEPENDIENTE
+DENTAL PRO — SaaS MULTI-TENANT PARA SERVICIOS ODONTOLÓGICOS
+
+INSTRUCCIÓN PRINCIPAL
+
+Construye desde cero una aplicación nueva llamada Dental Pro. Usa esta especificación como referencia funcional completa. No solicites, transfieras, conectes ni dependas de ningún repositorio, base de datos, código o variable de entorno de otro proyecto.
+
+Entrega software funcional por fases. No sustituyas la implementación por un informe, una presentación, un mockup o una estructura vacía. No inventes reglas económicas que deban definirse mediante el estudio económico posterior.
+
+1. CONTEXTO DEL PROYECTO Y OBJETIVO
+
+Dental Pro es un SaaS multi-tenant para el sector odontológico. Conecta pacientes con odontólogos, especialistas y clínicas; permite agendar consultas presenciales o teleconsultas; facilita la gestión de profesionales, credenciales, inventario, productos, recordatorios e información básica de citas y tratamientos.
+
+La plataforma tendrá tres ámbitos administrativos:
+
+- SuperAdmin: administra la plataforma, los tenants, los planes y las métricas globales.
+- TenantAdmin: representa a una franquicia, grupo o clínica; administra sus clínicas, odontólogos, productos, inventario y operaciones dentro de su ámbito.
+- Odontólogos y especialistas: pueden trabajar de forma independiente o pertenecer a una clínica y atender las citas que les correspondan.
+- Pacientes: usuarios finales que buscan profesionales, agendan citas, realizan consultas y compran productos.
+
+La clínica A nunca debe poder consultar los pacientes, citas, datos clínicos, inventario o finanzas de la clínica B. Los odontólogos independientes también deben tener un ámbito de datos claramente delimitado. Los pacientes acceden únicamente a su propia información y a los datos que les corresponden en una cita, tratamiento o compra.
+
+Usa la arquitectura multi-tenant de tres capas como referencia estructural; adapta completamente las entidades, pantallas y reglas al negocio odontológico. No reutilices reglas específicas de otros sectores.
+
+2. STACK TECNOLÓGICO OBLIGATORIO
+
+Frontend:
+- Expo React Native.
+- TypeScript.
+- Expo Router para navegación.
+- Aplicación móvil para iOS y Android, con diseño adaptable.
+
+Backend:
+- Node.js con Express.
+- tRPC para las operaciones tipadas entre frontend y backend.
+- Validación de entradas en servidor y manejo consistente de errores.
+
+Base de datos:
+- TiDB compatible con MySQL.
+- Drizzle ORM para modelos, consultas y migraciones.
+- Las migraciones deben ser incrementales y no destructivas.
+
+Pruebas y calidad:
+- Vitest para pruebas unitarias e integración.
+- Typecheck y lint obligatorios.
+- Pruebas de aislamiento multi-tenant, permisos y flujos críticos.
+- No declares un módulo completo si solo existe su interfaz o datos simulados sin identificar.
+
+Pagos:
+- Stripe exclusivamente en Sandbox durante esta fase.
+- No solicites ni incluyas claves reales.
+- Si no hay credenciales de prueba, usa un adaptador simulado explícito, seguro y sustituible.
+- No habilites cobros reales ni transferencias reales.
+
+3. ARQUITECTURA DE BASE DE DATOS: ENTIDADES Y RELACIONES
+
+Diseña un esquema normalizado y documenta las relaciones, índices, restricciones y reglas de acceso. Incluye, como mínimo, las siguientes entidades de dominio:
+
+Identidad, organización y permisos:
+- User: identidad, correo, credenciales protegidas, estado y datos de perfil necesarios.
+- Role y UserRole, o mecanismo equivalente para SuperAdmin, TenantAdmin, odontólogo/especialista y paciente.
+- Tenant: organización, grupo o clínica con configuración y estado.
+- Clinic: una o varias sedes asociadas a un tenant.
+- ClinicMembership: relación entre usuarios profesionales, clínicas y permisos.
+- IndependentPractice: ámbito operativo para odontólogos que trabajan de forma independiente.
+- AuditLog: registro de operaciones sensibles y cambios administrativos.
+
+Profesionales y seguridad de credenciales:
+- DentistProfile: perfil profesional, especialidades, ubicación, disponibilidad y estado.
+- Specialty: catálogo de especialidades, incluyendo ortodoncia, endodoncia, odontopediatría y otras configurables.
+- DentistCredential: títulos, licencias y documentos profesionales, estado de revisión, fechas y responsable de aprobación.
+- CredentialReview: historial auditable de aprobaciones, rechazos y solicitudes de corrección.
+
+Pacientes y atención:
+- PatientProfile: información necesaria para la cuenta y atención.
+- PatientConsent: consentimiento y preferencias de privacidad.
+- PatientPhoto: referencia a la foto del paciente, con controles de acceso y consentimiento.
+- Appointment: paciente, profesional, clínica o consulta independiente, modalidad, horario, estado y precio acordado.
+- AppointmentStatusHistory: cambios de estado y actor que los realizó.
+- Consultation: datos operativos mínimos de una consulta presencial o teleconsulta.
+- ClinicalNote: registro clínico básico vinculado a una cita, sujeto a permisos estrictos.
+- Reminder: recordatorios de citas y estado de envío.
+- PatientPurchaseHistory: historial de compras accesible solo al paciente y al ámbito autorizado.
+
+Marketplace:
+- Product: producto, descripción, precio configurado, inventario, tenant o clínica responsable y estado de publicación.
+- InventoryMovement: entradas, salidas y ajustes de stock.
+- Order: paciente, productos, dirección de entrega, estado y total calculado en backend.
+- OrderItem: producto, cantidad y snapshot de precio.
+- Delivery: método, estado, seguimiento y datos de entrega necesarios.
+
+Planes y pagos:
+- Plan: nombre del plan, capacidades y estado. Los nombres iniciales pueden ser Básico, Silver y Gold.
+- CountryPricing: estructura preparada para precios por país, sin inventar ni publicar importes.
+- Subscription: tenant o profesional independiente, plan, estado y fechas.
+- Payment: referencia de la operación de Sandbox, moneda, importe de snapshot y estado.
+- PaymentWebhookEvent: identificador del evento, proveedor, validación y resultado de procesamiento.
+- CommissionConfiguration: estructura configurable para comisiones, sin valores económicos definitivos hasta que el estudio económico los defina.
+
+Multi-tenancy y protección de datos:
+- Toda entidad de negocio debe tener un ámbito explícito: tenant, clínica, práctica independiente, paciente o plataforma.
+- Define una estrategia consistente para aplicar el ámbito de acceso en cada consulta y operación.
+- No uses un identificador recibido del cliente como prueba suficiente de autorización.
+- Asegura que la pertenencia del usuario al tenant, clínica o práctica se valide en el servidor.
+- Las relaciones con pacientes deben limitar el acceso a la información clínica al paciente y a profesionales autorizados para su atención.
+- Separa los datos globales de catálogo de los datos operativos privados de cada tenant.
+
+4. FLUJOS Y REGLAS DE NEGOCIO (PASO A PASO)
+
+A. Alta y administración de tenants
+1. Permite al SuperAdmin crear y administrar tenants.
+2. Un TenantAdmin administra una o varias clínicas pertenecientes a su tenant.
+3. Cada tenant solo consulta y administra sus propios odontólogos, pacientes relacionados, citas, productos, inventario y operaciones.
+4. Permite crear perfiles de odontólogos independientes con un ámbito propio, sin asociarlos forzosamente a una clínica.
+5. Mantén auditoría de altas, bajas, cambios de permisos y operaciones administrativas sensibles.
+
+B. Registro y verificación de odontólogos
+1. El odontólogo crea su cuenta y completa su perfil profesional.
+2. Debe cargar su foto y documentación de título o licencia, con consentimiento y almacenamiento protegido.
+3. La documentación queda pendiente de aprobación; no publiques al profesional ni permitas que atienda citas hasta que la verificación requerida sea aprobada.
+4. El SuperAdmin o TenantAdmin autorizado puede aprobar, rechazar o solicitar correcciones según el ámbito del profesional.
+5. Cada decisión debe registrar responsable, fecha, motivo y estado anterior y nuevo.
+6. Nunca permitas que un profesional apruebe sus propias credenciales.
+
+C. Registro y experiencia del paciente
+1. Permite que el paciente cree y administre su perfil.
+2. Solicita solo los datos necesarios para las funciones ofrecidas.
+3. Permite asociar una foto de perfil con consentimiento y visibilidad limitada.
+4. El paciente puede consultar sus citas, recordatorios, compras y los registros clínicos a los que tenga derecho.
+5. No expongas información clínica sensible en perfiles públicos, búsquedas, enlaces o códigos QR.
+
+D. Búsqueda y matching odontológico
+1. El paciente selecciona una especialidad y una modalidad: teleconsulta o atención presencial.
+2. Busca profesionales aprobados y disponibles.
+3. Filtra por ubicación o ciudad, especialidad, rating y disponibilidad horaria.
+4. Muestra información pública suficiente para que el paciente elija, sin revelar datos privados del profesional, la clínica o pacientes.
+5. Ordena resultados usando reglas deterministas y explicables. No presentes el orden como inteligencia artificial si no se ha implementado y validado un sistema de IA real.
+6. Permite que el paciente revise el profesional, horario y condiciones antes de solicitar o confirmar la cita.
+
+E. Agendamiento, citas y teleconsulta
+1. El paciente selecciona profesional, modalidad, horario disponible y datos necesarios para la cita.
+2. El backend vuelve a validar disponibilidad para evitar reservas duplicadas.
+3. Crea la cita y registra su historial de estados.
+4. Permite recordatorios automáticos, con estado de envío y manejo de fallos.
+5. Para teleconsultas, implementa el flujo de acceso y estado de consulta. Si el proveedor de videollamada no está configurado, muestra de forma explícita que la función está pendiente o usa una simulación identificada como tal.
+6. No marques como realizada una consulta solo porque se abrió la pantalla de teleconsulta.
+7. Limita la consulta y edición de notas clínicas a las personas autorizadas y al paciente correspondiente.
+
+F. Verificación de identidad en la clínica
+1. Permite usar un QR para iniciar un flujo de check-in, o que el odontólogo confirme la identidad revisando la foto del paciente.
+2. El QR debe contener un identificador no predecible y no debe incluir directamente datos personales ni clínicos.
+3. La verificación debe validar el QR en el servidor, registrar el evento y mostrar solo la información mínima necesaria.
+4. Evita que un QR permita consultar información de pacientes fuera de la cita o clínica autorizada.
+5. Ofrece un método alternativo cuando el paciente no pueda escanear el QR, sin reducir los controles de acceso.
+
+G. Marketplace de productos
+1. Permite a clínicas autorizadas publicar y administrar sus productos.
+2. Mantén inventario y movimientos de stock auditables.
+3. Permite a pacientes explorar productos, crear pedidos y consultar su estado.
+4. Calcula importes y valida inventario en el backend; no confíes en totales o precios enviados por la app.
+5. Guarda un snapshot del precio de cada producto al crear el pedido.
+6. Las condiciones de envío y entrega deben ser configurables; no inventes tarifas definitivas.
+
+H. Suscripciones y pagos en Sandbox
+1. Prepara planes para clínicas y odontólogos independientes, con precios por país configurables.
+2. No asignes importes, comisiones, porcentajes de reparto, impuestos ni políticas económicas definitivas. El estudio económico posterior definirá esos valores.
+3. Implementa interfaces desacopladas para suscripciones y pagos.
+4. Usa Stripe Sandbox solo cuando haya credenciales de prueba disponibles; en caso contrario usa un adaptador simulado claramente identificado.
+5. Las operaciones de Sandbox no deben producir cobros ni transferencias reales.
+6. Valida en servidor el importe, la moneda, el titular y el estado de cada operación.
+7. Procesa webhooks con verificación de firma cuando aplique, deduplicación por identificador de evento e idempotencia.
+8. Mantén separadas las tablas y configuraciones de planes, precios, suscripciones, pagos y comisiones para que el modelo económico pueda incorporarse después sin refactorizaciones destructivas.
+
+5. REGLAS ESTRICTAS DE CONSTRUCCIÓN Y SEGURIDAD
+
+- Construye un proyecto independiente; no pidas acceso al proyecto de referencia ni copies su código.
+- Aplica autorización en cada operación del servidor. Ocultar una pantalla o botón no es una medida de seguridad.
+- Aísla estrictamente los datos de cada tenant, clínica y profesional independiente.
+- Añade pruebas que demuestren que la clínica A no puede acceder a pacientes, citas, notas clínicas, inventario, pedidos o finanzas de la clínica B.
+- Valida en backend todas las entradas, permisos, horarios, precios, estados e identificadores.
+- Protege las contraseñas con un algoritmo de hashing adecuado; nunca las almacenes en texto claro.
+- Cifra los datos personales y clínicos sensibles en reposo y en tránsito cuando corresponda. Mantén las claves fuera del código y utiliza gestión segura de secretos.
+- Aplica minimización de datos, consentimiento, controles de retención y auditoría para datos de salud.
+- No afirmes cumplimiento legal automático. Diseña la aplicación con principios de privacidad y seguridad y documenta que las obligaciones concretas dependen de las jurisdicciones y requieren revisión profesional.
+- No registres contraseñas, tokens, documentos clínicos completos ni datos de tarjetas en logs.
+- No incluyas secretos en el repositorio, ejemplos, pruebas o archivos de configuración.
+- No publiques odontólogos antes de aprobar sus credenciales.
+- No permitas acciones de un TenantAdmin fuera de sus tenants.
+- No inventes precios, comisiones, porcentajes, impuestos ni condiciones económicas. Déjalos configurables y pendientes del estudio económico.
+- Mantén los pagos en Sandbox o simulados hasta que se autorice expresamente la activación real.
+- Diseña migraciones Drizzle incrementales y no destructivas; antes de una migración que pueda eliminar o transformar datos, exige una estrategia segura de respaldo y migración.
+- Distingue de manera visible en desarrollo cualquier dato o flujo simulado de una función conectada a un servicio real.
+
+6. CRITERIOS DE QA Y FASES DE CONSTRUCCIÓN
+
+FASE 1 — FUNDACIÓN Y SEGURIDAD MULTI-TENANT
+- Crear el proyecto Expo, Express/tRPC, Drizzle y conexión TiDB/MySQL.
+- Definir estructura de carpetas, configuración por entorno, esquema inicial y migraciones.
+- Implementar autenticación, roles, permisos y selección del ámbito de acceso.
+- Crear tenants, clínicas, perfiles independientes y auditoría inicial.
+- Añadir pruebas de autorización y aislamiento entre tenants.
+Criterio de salida: typecheck, lint, migraciones limpias y pruebas de aislamiento aprobadas.
+
+FASE 2 — PROFESIONALES, CREDENCIALES Y BÚSQUEDA
+- Implementar perfiles de odontólogos, especialidades, disponibilidad y carga de credenciales.
+- Construir flujos de revisión y aprobación.
+- Crear búsqueda y filtros por ciudad, especialidad, rating y horario.
+- Probar que solo aparezcan profesionales aprobados y activos.
+Criterio de salida: un profesional no aprobado no aparece en búsquedas ni puede recibir citas.
+
+FASE 3 — PACIENTES, CITAS, QR Y TELECONSULTA
+- Implementar perfil de paciente, agendamiento y control de disponibilidad.
+- Construir el historial de estados de citas, recordatorios y check-in QR.
+- Preparar teleconsulta con integración desacoplada y estado simulado explícito si falta el proveedor.
+- Probar acceso a citas y notas clínicas por paciente, profesional y clínica autorizados.
+Criterio de salida: no hay reservas duplicadas, accesos cruzados ni exposición de datos clínicos por QR.
+
+FASE 4 — MARKETPLACE E HISTORIAL
+- Implementar productos, inventario, pedidos, detalle, estados y entrega.
+- Crear historial de compras y tratamientos con los permisos apropiados.
+- Probar cálculo server-side, stock y snapshot de precios.
+Criterio de salida: ningún usuario puede modificar importes o consultar pedidos ajenos mediante datos enviados desde el cliente.
+
+FASE 5 — SUSCRIPCIONES, SANDBOX, ENDURECIMIENTO Y ENTREGA
+- Añadir estructura configurable de planes, suscripciones, pagos y comisiones sin valores económicos inventados.
+- Implementar adaptador Stripe Sandbox o simulado, con webhooks idempotentes cuando la configuración lo permita.
+- Ejecutar pruebas de seguridad, regresión, aislamiento, typecheck, lint y Vitest.
+- Documentar instalación, variables de entorno de ejemplo, migraciones, ejecución y configuración de Sandbox.
+Criterio de salida: ninguna ruta de prueba puede iniciar un cobro real; todos los secretos permanecen fuera del repositorio y las verificaciones pasan.
+
+PRUEBAS OBLIGATORIAS ANTES DE ENTREGAR
+
+Ejecuta y reporta resultados verificables de:
+
+- `typecheck` y `lint` para TypeScript.
+- Suite Vitest completa.
+- Migración desde una base de datos vacía y comprobación de migraciones incrementales.
+- Registro, autenticación, roles y permisos.
+- Aislamiento entre tenants, clínicas y profesionales independientes.
+- Aprobación y rechazo de credenciales.
+- Búsqueda y matching con profesionales aprobados y no aprobados.
+- Agendamiento concurrente y prevención de citas duplicadas.
+- QR: validez, expiración si aplica, minimización de datos y auditoría.
+- Acceso a notas clínicas y datos sensibles por usuario autorizado y no autorizado.
+- Inventario, pedido y snapshot de precio.
+- Webhooks repetidos, firma inválida e idempotencia en Sandbox.
+- Confirmación de que no existen precios, comisiones o tasas económicas inventadas o fijadas en código.
+- Confirmación de que no se realizaron cobros reales.
+- Revisión de logs y configuración para descartar secretos y datos clínicos expuestos.
+
+ENTREGA FINAL
+
+Entrega el código ejecutable, instrucciones para instalar y correr el proyecto, configuración de ejemplo sin secretos, migraciones y pruebas. Resume brevemente qué funciona, qué está simulado y qué queda pendiente del estudio económico o de servicios externos. No declares terminado ningún módulo si sus pruebas obligatorias fallan.
+```
