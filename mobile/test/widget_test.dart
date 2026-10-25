@@ -17,6 +17,44 @@ void main() {
     expect(find.text("ACCESO ODONTÓLOGOS"), findsOneWidget);
   });
 
+  testWidgets(
+      "dentist entry opens mock dashboard and local appointment actions", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.text("ACCESO ODONTÓLOGOS"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Panel odontológico"), findsOneWidget);
+    expect(find.text("Dra. Valentina Ortiz"), findsOneWidget);
+    expect(find.text("INGRESOS DEL DÍA"), findsOneWidget);
+    expect(find.text("\$350.00"), findsOneWidget);
+    expect(find.byKey(const Key("weekly-appointments-chart")), findsOneWidget);
+    expect(find.text("29 esta semana"), findsOneWidget);
+    expect(find.text("Pacientes de hoy"), findsOneWidget);
+    expect(find.text("María Fernanda López"), findsOneWidget);
+    expect(find.text("09:00"), findsOneWidget);
+    expect(find.text("Iniciar"), findsWidgets);
+    expect(find.text("Completar"), findsOneWidget);
+
+    final mariaAction =
+        find.byKey(const ValueKey("appointment-action-María Fernanda López"));
+    await tester.tap(mariaAction);
+    await tester.pumpAndSettle();
+
+    final mariaCard =
+        find.byKey(const ValueKey("appointment-card-María Fernanda López"));
+    expect(
+      find.descendant(of: mariaCard, matching: find.text("Completada")),
+      findsOneWidget,
+    );
+  });
+
   testWidgets("patient entry opens the sample dashboard", (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;

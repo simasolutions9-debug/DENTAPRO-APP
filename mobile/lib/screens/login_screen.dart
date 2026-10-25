@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../app_theme.dart";
 import "../widgets/dentapro_logo.dart";
+import "dentist_dashboard_screen.dart";
 import "patient_dashboard_screen.dart";
 
 class LoginScreen extends StatelessWidget {
@@ -13,15 +14,12 @@ class LoginScreen extends StatelessWidget {
     );
   }
 
-  void _showDentistNotice(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text("El acceso para odontólogos estará disponible pronto."),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+  void _openDentistDashboard(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DentistDashboardScreen(),
+      ),
+    );
   }
 
   @override
@@ -71,7 +69,7 @@ class LoginScreen extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () => _showDentistNotice(context),
+                            onPressed: () => _openDentistDashboard(context),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.blue,
                             ),
