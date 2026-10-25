@@ -88,4 +88,38 @@ void main() {
     expect(find.text("Clínica Sonríe"), findsNothing);
     expect(find.text("Sonrisa Kids"), findsNothing);
   });
+
+  testWidgets("reservation screen shows calendar, slots, and mock summary", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.text("SOY PACIENTE"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip("Buscar clínicas"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Reservar cita").first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CalendarDatePicker), findsOneWidget);
+    expect(find.text("Horarios disponibles"), findsOneWidget);
+    expect(find.text("09:00"), findsOneWidget);
+    expect(find.text("10:30"), findsNWidgets(2));
+    expect(find.text("Resumen de reserva"), findsOneWidget);
+    expect(find.text("Confirmar y Pagar"), findsOneWidget);
+
+    await tester.tap(find.text("09:00"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Confirmar y Pagar"));
+    await tester.pump();
+
+    expect(
+      find.text("Vista previa: no se realizó ningún cobro."),
+      findsOneWidget,
+    );
+  });
 }

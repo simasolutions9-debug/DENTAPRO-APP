@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "booking_checkout_screen.dart";
 
 class ClinicCatalogScreen extends StatefulWidget {
   const ClinicCatalogScreen({super.key});
@@ -160,7 +161,21 @@ class _ClinicCatalogScreenState extends State<ClinicCatalogScreen> {
               const _EmptySearchState()
             else
               for (final clinic in clinics) ...[
-                _ClinicCard(clinic: clinic),
+                _ClinicCard(
+                  clinic: clinic,
+                  onReserve: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => BookingCheckoutScreen(
+                          clinicName: clinic.name,
+                          doctorName: clinic.doctor,
+                          specialty: clinic.specialty,
+                          priceLabel: clinic.price,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(height: 16),
               ],
             const SizedBox(height: 2),
@@ -210,9 +225,10 @@ class _LocationLabel extends StatelessWidget {
 }
 
 class _ClinicCard extends StatelessWidget {
-  const _ClinicCard({required this.clinic});
+  const _ClinicCard({required this.clinic, required this.onReserve});
 
   final _ClinicListing clinic;
+  final VoidCallback onReserve;
 
   @override
   Widget build(BuildContext context) {
@@ -405,6 +421,27 @@ class _ClinicCard extends StatelessWidget {
                         ],
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: onReserve,
+                      icon: const Icon(
+                        Icons.calendar_month_rounded,
+                        size: 17,
+                      ),
+                      label: const Text("Reservar cita"),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.navy,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(44, 38),
+                        textStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
