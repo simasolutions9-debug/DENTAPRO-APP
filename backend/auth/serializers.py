@@ -101,4 +101,9 @@ class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token["tenant_id"] = str(user.tenant_id)
         token["role"] = user.role
+        patient_id = Paciente.objects.filter(
+            tenant_id=user.tenant_id,
+            email__iexact=user.email,
+        ).values_list("id", flat=True).first()
+        token["patient_id"] = str(patient_id) if patient_id else None
         return token

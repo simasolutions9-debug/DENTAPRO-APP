@@ -6,6 +6,13 @@ abstract interface class ClinicRepository {
   Future<List<ClinicListing>> fetchClinics();
 }
 
+abstract interface class ClinicAvailabilityRepository {
+  Future<List<ClinicSlot>> fetchAvailability({
+    required String clinicSlug,
+    required DateTime date,
+  });
+}
+
 class ClinicListing {
   const ClinicListing({
     required this.slug,
@@ -39,7 +46,40 @@ class ClinicListing {
   }
 }
 
-class ClinicService implements ClinicRepository {
+class ClinicSlot {
+  const ClinicSlot({
+    required this.id,
+    required this.startsAt,
+    required this.durationMinutes,
+  });
+
+  final String id;
+  final DateTime startsAt;
+  final int durationMinutes;
+
+  factory ClinicSlot.fromJson(Map<String, dynamic> json) {
+    final id = json["id"];
+    final startsAtValue = json["starts_at"];
+    final durationMinutes = json["duration_minutes"];
+    final startsAt =
+        startsAtValue is String ? DateTime.tryParse(startsAtValue) : null;
+    if (id is! String ||
+        startsAt == null ||
+        durationMinutes is! int ||
+        durationMinutes <= 0) {
+      throw const FormatException(
+        "El servidor devolvió un horario con formato no válido.",
+      );
+    }
+    return ClinicSlot(
+      id: id,
+      startsAt: startsAt.toLocal(),
+      durationMinutes: durationMinutes,
+    );
+  }
+}
+
+class ClinicService implements ClinicRepository, ClinicAvailabilityRepository {
   ClinicService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
@@ -61,6 +101,38 @@ class ClinicService implements ClinicRepository {
           );
         }
         return ClinicListing.fromJson(Map<String, dynamic>.from(item));
+      }).toList(growable: false);
+    } on DioException catch (exception) {
+      throw ApiException.fromDio(exception);
+    }
+  }
+
+  @override
+  Future<List<ClinicSlot>> fetchAvailability({
+    required String clinicSlug,
+    required DateTime date,
+  }) async {
+    final formattedDate = "${date.year.toString().padLeft(4, "0")}-"
+        "${date.month.toString().padLeft(2, "0")}-"
+        "${date.day.toString().padLeft(2, "0")}";
+    try {
+      final response = await _apiClient.dio.get(
+        "v1/clinics/${Uri.encodeComponent(clinicSlug)}/availability/",
+        queryParameters: {"date": formattedDate},
+      );
+      final data = response.data;
+      if (data is! Map || data["slots"] is! List) {
+        throw const FormatException(
+          "El servidor devolvió una disponibilidad con formato no válido.",
+        );
+      }
+      return (data["slots"] as List).map((item) {
+        if (item is! Map) {
+          throw const FormatException(
+            "El servidor devolvió un horario con formato no válido.",
+          );
+        }
+        return ClinicSlot.fromJson(Map<String, dynamic>.from(item));
       }).toList(growable: false);
     } on DioException catch (exception) {
       throw ApiException.fromDio(exception);

@@ -46,15 +46,24 @@ class _RecordingAdapter implements HttpClientAdapter {
 class _MemoryTokenStore implements AuthTokenStore {
   String? accessToken;
   String? refreshToken;
+  String? patientId;
 
   @override
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
+    String? patientId,
   }) async {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
+    this.patientId = patientId;
   }
+
+  @override
+  Future<String?> readAccessToken() async => accessToken;
+
+  @override
+  Future<String?> readPatientId() async => patientId;
 }
 
 String _jwt(Map<String, Object> claims) {
@@ -68,6 +77,7 @@ void main() {
     final access = _jwt({
       "role": "paciente",
       "tenant_id": ApiClient.defaultTenantId,
+      "patient_id": "patient-1",
     });
     final adapter = _RecordingAdapter(
       statusCode: 200,
@@ -97,6 +107,8 @@ void main() {
     });
     expect(session.role, "paciente");
     expect(session.tenantId, ApiClient.defaultTenantId);
+    expect(session.patientId, "patient-1");
+    expect(store.patientId, "patient-1");
     expect(store.accessToken, access);
     expect(store.refreshToken, "refresh-token");
   });

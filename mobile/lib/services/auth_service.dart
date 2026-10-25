@@ -24,7 +24,12 @@ abstract interface class AuthTokenStore {
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
+    String? patientId,
   });
+
+  Future<String?> readAccessToken();
+
+  Future<String?> readPatientId();
 }
 
 class SecureAuthTokenStore implements AuthTokenStore {
@@ -33,6 +38,7 @@ class SecureAuthTokenStore implements AuthTokenStore {
 
   static const _accessTokenKey = "dentapro.access_token";
   static const _refreshTokenKey = "dentapro.refresh_token";
+  static const _patientIdKey = "dentapro.patient_id";
 
   final FlutterSecureStorage _storage;
 
@@ -40,10 +46,22 @@ class SecureAuthTokenStore implements AuthTokenStore {
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
+    String? patientId,
   }) async {
     await _storage.write(key: _accessTokenKey, value: accessToken);
     await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    if (patientId == null) {
+      await _storage.delete(key: _patientIdKey);
+    } else {
+      await _storage.write(key: _patientIdKey, value: patientId);
+    }
   }
+
+  @override
+  Future<String?> readAccessToken() => _storage.read(key: _accessTokenKey);
+
+  @override
+  Future<String?> readPatientId() => _storage.read(key: _patientIdKey);
 }
 
 class AuthSession {
@@ -52,12 +70,14 @@ class AuthSession {
     required this.refreshToken,
     required this.role,
     required this.tenantId,
+    this.patientId,
   });
 
   final String accessToken;
   final String refreshToken;
   final String role;
   final String tenantId;
+  final String? patientId;
 }
 
 class AuthService implements AuthRepository {
@@ -98,19 +118,27 @@ class AuthService implements AuthRepository {
     final claims = _decodeJwtClaims(accessToken);
     final role = claims["role"] as String?;
     final tenantId = claims["tenant_id"] as String?;
+    final patientId = claims["patient_id"] as String?;
     if (role == null || tenantId == null) {
       throw const FormatException("El token no contiene el rol del usuario.");
+    }
+    if (role == "paciente" && patientId == null) {
+      throw const FormatException(
+        "El token no contiene el perfil de paciente. Inicia sesión de nuevo.",
+      );
     }
 
     await _tokenStore.saveTokens(
       accessToken: accessToken,
       refreshToken: refreshToken,
+      patientId: patientId,
     );
     return AuthSession(
       accessToken: accessToken,
       refreshToken: refreshToken,
       role: role,
       tenantId: tenantId,
+      patientId: patientId,
     );
   }
 

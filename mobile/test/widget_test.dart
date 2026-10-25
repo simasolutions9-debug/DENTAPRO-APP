@@ -3,6 +3,7 @@ import "dart:async";
 import "package:dentapro_mobile/main.dart";
 import "package:dentapro_mobile/screens/booking_checkout_screen.dart";
 import "package:dentapro_mobile/screens/clinic_catalog_screen.dart";
+import "package:dentapro_mobile/services/appointment_service.dart";
 import "package:dentapro_mobile/services/api_client.dart";
 import "package:dentapro_mobile/services/clinic_service.dart";
 import "package:flutter/material.dart";
@@ -71,6 +72,29 @@ class _FakeClinicRepository implements ClinicRepository {
     if (fetch != null) return fetch!();
     return clinics;
   }
+}
+
+class _FakeClinicAvailabilityRepository
+    implements ClinicAvailabilityRepository {
+  _FakeClinicAvailabilityRepository(this.slots);
+
+  final List<ClinicSlot> slots;
+
+  @override
+  Future<List<ClinicSlot>> fetchAvailability({
+    required String clinicSlug,
+    required DateTime date,
+  }) async =>
+      slots;
+}
+
+class _FakeAppointmentRepository implements AppointmentRepository {
+  @override
+  Future<void> createAppointment({
+    required String clinicSlug,
+    required String slotId,
+    required DateTime startsAt,
+  }) async {}
 }
 
 Future<void> _loginAs(
@@ -349,7 +373,7 @@ void main() {
     expect(find.byKey(const Key("clinic-retry-button")), findsOneWidget);
   });
 
-  testWidgets("reservation screen shows calendar, slots, and mock summary", (
+  testWidgets("reservation screen displays published clinic slots", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -357,24 +381,36 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const MaterialApp(home: BookingCheckoutScreen()));
+    final today = DateUtils.dateOnly(DateTime.now());
+    await tester.pumpWidget(
+      MaterialApp(
+        home: BookingCheckoutScreen(
+          clinicSlug: "clinica-norte",
+          clinicName: "Clínica Norte",
+          availabilityRepository: _FakeClinicAvailabilityRepository([
+            ClinicSlot(
+              id: "slot-1",
+              startsAt: DateTime(today.year, today.month, today.day, 9),
+              durationMinutes: 30,
+            ),
+            ClinicSlot(
+              id: "slot-2",
+              startsAt: DateTime(today.year, today.month, today.day, 10, 30),
+              durationMinutes: 30,
+            ),
+          ]),
+          appointmentRepository: _FakeAppointmentRepository(),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byType(CalendarDatePicker), findsOneWidget);
     expect(find.text("Horarios disponibles"), findsOneWidget);
     expect(find.text("09:00"), findsOneWidget);
-    expect(find.text("10:30"), findsNWidgets(2));
+    expect(find.text("10:30"), findsOneWidget);
     expect(find.text("Resumen de reserva"), findsOneWidget);
-    expect(find.text("Confirmar y Pagar"), findsOneWidget);
-
-    await tester.tap(find.text("09:00"));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text("Confirmar y Pagar"));
-    await tester.pump();
-
-    expect(
-      find.text("Vista previa: no se realizó ningún cobro."),
-      findsOneWidget,
-    );
+    expect(find.text("Confirmar cita"), findsOneWidget);
+    expect(find.text("Los horarios mostrados son de ejemplo."), findsNothing);
   });
 }

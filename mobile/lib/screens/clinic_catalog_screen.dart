@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../app_theme.dart";
 import "../services/api_client.dart";
 import "../services/clinic_service.dart";
+import "booking_checkout_screen.dart";
 
 class ClinicCatalogScreen extends StatefulWidget {
   const ClinicCatalogScreen({super.key, this.clinicRepository});
@@ -311,74 +312,93 @@ class _ClinicCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(23),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 154,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  _ClinicArtwork(clinic: clinic),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0xAA062B4E)],
-                        stops: [0.45, 1],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 14,
-                    child: Text(
-                      clinic.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: -0.2,
-                        shadows: [
-                          Shadow(
-                            color: Color(0x66000000),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
+        child: Material(
+          color: Colors.white,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(23),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => BookingCheckoutScreen(
+                  clinicSlug: clinic.slug,
+                  clinicName: clinic.name,
+                ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.verified_outlined,
-                    color: AppColors.teal,
-                    size: 19,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "Perfil de clínica en DENTAPRO",
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.ink,
-                            fontWeight: FontWeight.w600,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: 154,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _ClinicArtwork(clinic: clinic),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Color(0xAA062B4E)],
+                            stops: [0.45, 1],
                           ),
-                    ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 16,
+                        right: 16,
+                        bottom: 14,
+                        child: Text(
+                          clinic.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            shadows: [
+                              Shadow(
+                                color: Color(0x66000000),
+                                blurRadius: 8,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.verified_outlined,
+                        color: AppColors.teal,
+                        size: 19,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Perfil de clínica en DENTAPRO",
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.ink,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.teal,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

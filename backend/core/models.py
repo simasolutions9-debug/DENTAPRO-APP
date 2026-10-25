@@ -97,6 +97,33 @@ class HistorialClinico(models.Model):
         return f"Clinical record for {self.patient}"
 
 
+class ClinicScheduleSlot(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.CASCADE,
+        db_column="tenant_id",
+        related_name="schedule_slots",
+    )
+    starts_at = models.DateTimeField()
+    duration_minutes = models.PositiveSmallIntegerField(default=30)
+    is_published = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "clinic_schedule_slot"
+        ordering = ["starts_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant", "starts_at"],
+                name="uniq_clinic_slot_start",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"Slot for {self.tenant} at {self.starts_at}"
+
+
 class Cita(models.Model):
     class Status(models.TextChoices):
         SCHEDULED = "scheduled", "Scheduled"
@@ -115,6 +142,13 @@ class Cita(models.Model):
         Paciente,
         on_delete=models.PROTECT,
         related_name="appointments",
+    )
+    availability_slot = models.OneToOneField(
+        ClinicScheduleSlot,
+        on_delete=models.PROTECT,
+        related_name="appointment",
+        null=True,
+        blank=True,
     )
     scheduled_at = models.DateTimeField()
     duration_minutes = models.PositiveSmallIntegerField(default=30)
