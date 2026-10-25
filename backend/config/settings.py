@@ -14,8 +14,22 @@ if not SECRET_KEY:
     raise ImproperlyConfigured("SECRET_KEY must be set in the environment.")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+DENTAPRO_DEMO_TENANT_ID = env(
+    "DENTAPRO_DEMO_TENANT_ID",
+    default="00000000-0000-0000-0000-000000000001",
+)
+
+CORS_ALLOWED_ORIGINS = env.list(
+    "CORS_ALLOWED_ORIGINS",
+    default=["http://localhost:5000", "http://127.0.0.1:5000"],
+)
+replit_dev_domain = env("REPLIT_DEV_DOMAIN", default="").strip().strip("/")
+if replit_dev_domain:
+    CORS_ALLOWED_ORIGINS.append(f"https://{replit_dev_domain}")
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys(CORS_ALLOWED_ORIGINS))
 
 INSTALLED_APPS = [
+    "corsheaders",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "rest_framework",
@@ -26,6 +40,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "core.middleware.TenantRLSMiddleware",
 ]

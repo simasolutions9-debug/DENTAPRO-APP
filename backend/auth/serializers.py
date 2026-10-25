@@ -3,6 +3,55 @@ from rest_framework import serializers
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from auth.models import User
+from core.models import Paciente, Tenant
+
+
+class PatientRegistrationSerializer(serializers.Serializer):
+    first_name = serializers.CharField(max_length=100, trim_whitespace=True)
+    last_name = serializers.CharField(max_length=100, trim_whitespace=True)
+    email = serializers.EmailField()
+    password = serializers.CharField(
+        write_only=True,
+        min_length=8,
+        trim_whitespace=False,
+        error_messages={
+            "min_length": "La contraseña debe tener al menos 8 caracteres."
+        },
+    )
+    phone = serializers.CharField(
+        max_length=32,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def create(self, validated_data):
+        tenant = validated_data.pop("tenant")
+        first_name = validated_data.pop("first_name")
+        last_name = validated_data.pop("last_name")
+        phone = validated_data.pop("phone", "")
+        password = validated_data.pop("password")
+        email = validated_data["email"]
+
+        user = User.objects.create_user(
+            email=email,
+            password=password,
+            role=User.Role.PATIENT,
+            tenant=tenant,
+        )
+        Paciente.objects.create(
+            tenant=tenant,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            phone=phone,
+        )
+        return user
+
 
 class TenantTokenObtainPairSerializer(TokenObtainPairSerializer):
     tenant_id = serializers.UUIDField(

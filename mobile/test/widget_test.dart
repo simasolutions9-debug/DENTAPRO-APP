@@ -1,10 +1,72 @@
 import "package:dentapro_mobile/main.dart";
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
+import "package:dentapro_mobile/services/auth_service.dart";
+
+class _FakeAuthRepository implements AuthRepository {
+  _FakeAuthRepository({this.role = "paciente", this.failLogin = false});
+
+  final String role;
+  final bool failLogin;
+  String? submittedEmail;
+  String? submittedPassword;
+  Map<String, String>? submittedRegistration;
+
+  @override
+  Future<AuthSession> login({
+    required String email,
+    required String password,
+  }) async {
+    submittedEmail = email;
+    submittedPassword = password;
+    if (failLogin) throw Exception("Invalid credentials");
+    return AuthSession(
+      accessToken: "access",
+      refreshToken: "refresh",
+      role: role,
+      tenantId: "tenant",
+    );
+  }
+
+  @override
+  Future<void> register({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String password,
+    String phone = "",
+  }) async {
+    submittedRegistration = {
+      "first_name": firstName,
+      "last_name": lastName,
+      "email": email,
+      "password": password,
+      "phone": phone,
+    };
+  }
+}
+
+Future<void> _loginAs(
+  WidgetTester tester, {
+  String role = "paciente",
+  _FakeAuthRepository? repository,
+}) async {
+  final auth = repository ?? _FakeAuthRepository(role: role);
+  await tester.pumpWidget(DentaproApp(authRepository: auth));
+  await tester.enterText(
+    find.byKey(const Key("login-email-field")),
+    "persona@example.com",
+  );
+  await tester.enterText(
+    find.byKey(const Key("login-password-field")),
+    "correct-password",
+  );
+  await tester.tap(find.byKey(const Key("login-submit-button")));
+  await tester.pumpAndSettle();
+}
 
 void main() {
-  testWidgets("login presents patient and dentist entry points",
-      (tester) async {
+  testWidgets("login shows email and password fields", (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -13,12 +75,41 @@ void main() {
     await tester.pumpWidget(const DentaproApp());
 
     expect(find.text("Dentapro"), findsOneWidget);
-    expect(find.text("SOY PACIENTE"), findsOneWidget);
-    expect(find.text("ACCESO ODONTÓLOGOS"), findsOneWidget);
+    expect(find.byKey(const Key("login-email-field")), findsOneWidget);
+    expect(find.byKey(const Key("login-password-field")), findsOneWidget);
+    expect(find.text("Ingresar"), findsOneWidget);
+    expect(find.text("Crear cuenta"), findsOneWidget);
   });
 
-  testWidgets(
-      "dentist entry opens mock dashboard and local appointment actions", (
+  testWidgets("login sends credentials and routes by role", (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repository = _FakeAuthRepository(role: "dentista");
+    await _loginAs(tester, repository: repository);
+
+    expect(repository.submittedEmail, "persona@example.com");
+    expect(repository.submittedPassword, "correct-password");
+    expect(find.text("Panel odontológico"), findsOneWidget);
+  });
+
+  testWidgets("failed login displays the requested error", (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _loginAs(
+      tester,
+      repository: _FakeAuthRepository(failLogin: true),
+    );
+
+    expect(find.text("Credenciales incorrectas"), findsOneWidget);
+  });
+
+  testWidgets("patient registration submits data and returns email", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -26,9 +117,48 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("ACCESO ODONTÓLOGOS"));
+    final repository = _FakeAuthRepository();
+    await tester.pumpWidget(DentaproApp(authRepository: repository));
+    await tester.tap(find.byKey(const Key("open-registration-button")));
     await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key("registration-first-name-field")),
+      "Ada",
+    );
+    await tester.enterText(
+      find.byKey(const Key("registration-last-name-field")),
+      "Lovelace",
+    );
+    await tester.enterText(
+      find.byKey(const Key("registration-email-field")),
+      "ada@example.com",
+    );
+    await tester.enterText(
+      find.byKey(const Key("registration-password-field")),
+      "secure-pass-123",
+    );
+    await tester.enterText(
+      find.byKey(const Key("registration-confirm-password-field")),
+      "secure-pass-123",
+    );
+    await tester.tap(find.byKey(const Key("registration-submit-button")));
+    await tester.pumpAndSettle();
+
+    expect(repository.submittedRegistration?["first_name"], "Ada");
+    expect(repository.submittedRegistration?["last_name"], "Lovelace");
+    expect(repository.submittedRegistration?["email"], "ada@example.com");
+    expect(find.text("Cuenta creada. Inicia sesión."), findsOneWidget);
+  });
+
+  testWidgets("dentist dashboard retains local appointment actions", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _loginAs(tester, role: "dentista");
 
     expect(find.text("Panel odontológico"), findsOneWidget);
     expect(find.text("Dra. Valentina Ortiz"), findsOneWidget);
@@ -61,9 +191,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("SOY PACIENTE"));
-    await tester.pumpAndSettle();
+    await _loginAs(tester);
 
     expect(find.text("Hola, Camila"), findsOneWidget);
     expect(find.text("Limpieza y revisión"), findsOneWidget);
@@ -78,9 +206,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("SOY PACIENTE"));
-    await tester.pumpAndSettle();
+    await _loginAs(tester);
     await tester.tap(find.text("Odontograma"));
     await tester.pumpAndSettle();
 
@@ -110,9 +236,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("SOY PACIENTE"));
-    await tester.pumpAndSettle();
+    await _loginAs(tester);
     await tester.tap(find.byTooltip("Buscar clínicas"));
     await tester.pumpAndSettle();
 
@@ -127,9 +251,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("SOY PACIENTE"));
-    await tester.pumpAndSettle();
+    await _loginAs(tester);
     await tester.tap(find.byTooltip("Buscar clínicas"));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -151,9 +273,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.text("SOY PACIENTE"));
-    await tester.pumpAndSettle();
+    await _loginAs(tester);
     await tester.tap(find.byTooltip("Buscar clínicas"));
     await tester.pumpAndSettle();
     await tester.tap(find.text("Reservar cita").first);
