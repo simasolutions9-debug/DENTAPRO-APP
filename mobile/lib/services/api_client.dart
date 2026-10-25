@@ -21,6 +21,8 @@ class ApiClient {
     defaultValue: "00000000-0000-0000-0000-000000000001",
   );
 
+  static const clinicSlug = String.fromEnvironment("DENTAPRO_CLINIC_SLUG");
+
   final Dio dio;
 
   static String _defaultBaseUrl() {

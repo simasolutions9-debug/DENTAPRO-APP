@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../services/api_client.dart";
+import "manage_schedule_screen.dart";
 
 class DentistDashboardScreen extends StatefulWidget {
   const DentistDashboardScreen({super.key});
@@ -128,6 +130,16 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
               appointments: _weeklyAppointments,
               total: _weeklyTotal,
             ),
+            const SizedBox(height: 12),
+            _ManageScheduleCard(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const ManageScheduleScreen(
+                    clinicSlug: ApiClient.clinicSlug,
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 22),
             Row(
               children: [
@@ -182,6 +194,72 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
                   ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ManageScheduleCard extends StatelessWidget {
+  const _ManageScheduleCard({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        key: const Key("manage-schedule-access"),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.teal.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: AppColors.teal,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Gestionar Horarios",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: AppColors.navy,
+                            fontSize: 14,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      "Publica y revisa la disponibilidad de tu clínica",
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.teal,
+              ),
+            ],
+          ),
         ),
       ),
     );
