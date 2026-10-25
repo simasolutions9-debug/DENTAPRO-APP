@@ -1,4 +1,10 @@
+import "dart:async";
+
 import "package:dentapro_mobile/main.dart";
+import "package:dentapro_mobile/screens/booking_checkout_screen.dart";
+import "package:dentapro_mobile/screens/clinic_catalog_screen.dart";
+import "package:dentapro_mobile/services/api_client.dart";
+import "package:dentapro_mobile/services/clinic_service.dart";
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
 import "package:dentapro_mobile/services/auth_service.dart";
@@ -19,7 +25,9 @@ class _FakeAuthRepository implements AuthRepository {
   }) async {
     submittedEmail = email;
     submittedPassword = password;
-    if (failLogin) throw Exception("Invalid credentials");
+    if (failLogin) {
+      throw const ApiException("Credenciales incorrectas", statusCode: 401);
+    }
     return AuthSession(
       accessToken: "access",
       refreshToken: "refresh",
@@ -43,6 +51,25 @@ class _FakeAuthRepository implements AuthRepository {
       "password": password,
       "phone": phone,
     };
+  }
+}
+
+class _FakeClinicRepository implements ClinicRepository {
+  _FakeClinicRepository({
+    this.clinics = const [],
+    this.error,
+    this.fetch,
+  });
+
+  final List<ClinicListing> clinics;
+  final Object? error;
+  final Future<List<ClinicListing>> Function()? fetch;
+
+  @override
+  Future<List<ClinicListing>> fetchClinics() async {
+    if (error != null) throw error!;
+    if (fetch != null) return fetch!();
+    return clinics;
   }
 }
 
@@ -230,39 +257,100 @@ void main() {
     expect(find.text("24 oct 2026"), findsOneWidget);
   });
 
-  testWidgets("dashboard search opens the clinic catalog", (tester) async {
+  testWidgets("clinic catalog loads clinics from its repository", (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester);
-    await tester.tap(find.byTooltip("Buscar clínicas"));
-    await tester.pumpAndSettle();
+    final response = Completer<List<ClinicListing>>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ClinicCatalogScreen(
+          clinicRepository: _FakeClinicRepository(
+            fetch: () => response.future,
+          ),
+        ),
+      ),
+    );
 
+    expect(find.byKey(const Key("clinic-loading-indicator")), findsOneWidget);
+    response.complete([
+      const ClinicListing(
+        tenantId: "tenant-1",
+        slug: "clinica-norte",
+        name: "Clínica Norte",
+      ),
+      const ClinicListing(
+        tenantId: "tenant-2",
+        slug: "clinica-sur",
+        name: "Clínica Sur",
+      ),
+    ]);
+    await tester.pumpAndSettle();
     expect(find.text("Encuentra tu clínica"), findsOneWidget);
-    expect(find.text("Clínica Sonríe"), findsOneWidget);
-    expect(find.text("Dra. Valentina Ortiz"), findsOneWidget);
+    expect(find.text("Clínica Norte"), findsOneWidget);
+    expect(find.text("Clínica Sur"), findsOneWidget);
   });
 
-  testWidgets("clinic search filters the sample listings", (tester) async {
+  testWidgets("clinic search filters the returned clinic list", (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester);
-    await tester.tap(find.byTooltip("Buscar clínicas"));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ClinicCatalogScreen(
+          clinicRepository: _FakeClinicRepository(
+            clinics: const [
+              ClinicListing(
+                tenantId: "tenant-1",
+                slug: "clinica-nova",
+                name: "Clínica Nova",
+              ),
+              ClinicListing(
+                tenantId: "tenant-2",
+                slug: "clinica-rio",
+                name: "Clínica Río",
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key("clinic-search-field")),
-      "Mateo Ruiz",
+      "nova",
     );
     await tester.pumpAndSettle();
 
     expect(find.text("Clínica Nova"), findsOneWidget);
-    expect(find.text("Clínica Sonríe"), findsNothing);
-    expect(find.text("Sonrisa Kids"), findsNothing);
+    expect(find.text("Clínica Río"), findsNothing);
+  });
+
+  testWidgets("clinic catalog shows the backend error and retry", (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ClinicCatalogScreen(
+          clinicRepository: _FakeClinicRepository(
+            error: const ApiException(
+              "La base de datos no está disponible.",
+              statusCode: 503,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("La base de datos no está disponible."), findsOneWidget);
+    expect(find.byKey(const Key("clinic-retry-button")), findsOneWidget);
   });
 
   testWidgets("reservation screen shows calendar, slots, and mock summary", (
@@ -273,10 +361,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester);
-    await tester.tap(find.byTooltip("Buscar clínicas"));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text("Reservar cita").first);
+    await tester.pumpWidget(const MaterialApp(home: BookingCheckoutScreen()));
     await tester.pumpAndSettle();
 
     expect(find.byType(CalendarDatePicker), findsOneWidget);

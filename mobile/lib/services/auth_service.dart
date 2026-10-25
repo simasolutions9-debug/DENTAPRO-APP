@@ -1,5 +1,6 @@
 import "dart:convert";
 
+import "package:dio/dio.dart";
 import "package:flutter_secure_storage/flutter_secure_storage.dart";
 
 import "api_client.dart";
@@ -74,14 +75,19 @@ class AuthService implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    final response = await _apiClient.dio.post<Map<String, dynamic>>(
-      "auth/token/",
-      data: {
-        "email": email.trim().toLowerCase(),
-        "password": password,
-        "tenant_id": ApiClient.demoTenantId,
-      },
-    );
+    late final Response<Map<String, dynamic>> response;
+    try {
+      response = await _apiClient.dio.post<Map<String, dynamic>>(
+        "auth/token/",
+        data: {
+          "email": email.trim().toLowerCase(),
+          "password": password,
+          "tenant_id": ApiClient.defaultTenantId,
+        },
+      );
+    } on DioException catch (exception) {
+      throw ApiException.fromDio(exception);
+    }
     final accessToken = response.data?["access"] as String?;
     final refreshToken = response.data?["refresh"] as String?;
     if (accessToken == null || refreshToken == null) {
@@ -116,16 +122,20 @@ class AuthService implements AuthRepository {
     required String password,
     String phone = "",
   }) async {
-    await _apiClient.dio.post<void>(
-      "auth/register/",
-      data: {
-        "first_name": firstName.trim(),
-        "last_name": lastName.trim(),
-        "email": email.trim().toLowerCase(),
-        "password": password,
-        "phone": phone.trim(),
-      },
-    );
+    try {
+      await _apiClient.dio.post<void>(
+        "auth/register/",
+        data: {
+          "first_name": firstName.trim(),
+          "last_name": lastName.trim(),
+          "email": email.trim().toLowerCase(),
+          "password": password,
+          "phone": phone.trim(),
+        },
+      );
+    } on DioException catch (exception) {
+      throw ApiException.fromDio(exception);
+    }
   }
 
   Map<String, dynamic> _decodeJwtClaims(String token) {

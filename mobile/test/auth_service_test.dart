@@ -67,7 +67,7 @@ void main() {
   test("login sends tenant id and saves both JWTs", () async {
     final access = _jwt({
       "role": "paciente",
-      "tenant_id": ApiClient.demoTenantId,
+      "tenant_id": ApiClient.defaultTenantId,
     });
     final adapter = _RecordingAdapter(
       statusCode: 200,
@@ -93,10 +93,10 @@ void main() {
     expect(adapter.requestData, {
       "email": "patient@example.com",
       "password": "secret",
-      "tenant_id": ApiClient.demoTenantId,
+      "tenant_id": ApiClient.defaultTenantId,
     });
     expect(session.role, "paciente");
-    expect(session.tenantId, ApiClient.demoTenantId);
+    expect(session.tenantId, ApiClient.defaultTenantId);
     expect(store.accessToken, access);
     expect(store.refreshToken, "refresh-token");
   });
@@ -127,5 +127,25 @@ void main() {
       "password": "secure-pass-123",
       "phone": "555-0100",
     });
+  });
+
+  test("login preserves the backend authentication error", () async {
+    final adapter = _RecordingAdapter(
+      statusCode: 401,
+      responseJson: jsonEncode({"detail": "Credenciales incorrectas."}),
+    );
+    final dio = Dio(BaseOptions(baseUrl: "http://localhost:8000/api/"))
+      ..httpClientAdapter = adapter;
+    final service = AuthService(apiClient: ApiClient(dio: dio));
+
+    await expectLater(
+      service.login(email: "patient@example.com", password: "wrong"),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.message, "message",
+                "Credenciales incorrectas.")
+            .having((error) => error.statusCode, "statusCode", 401),
+      ),
+    );
   });
 }

@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../services/api_client.dart";
 import "../services/auth_service.dart";
 import "../widgets/dentapro_logo.dart";
 import "dentist_dashboard_screen.dart";
@@ -58,11 +59,17 @@ class _LoginScreenState extends State<LoginScreen> {
       await Navigator.of(context).pushReplacement<void, void>(
         MaterialPageRoute<void>(builder: (_) => dashboard),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      _showMessage("Credenciales incorrectas");
+      _showMessage(_messageFor(error));
     }
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+    if (error is FormatException) return error.message.toString();
+    return "No se pudo conectar con el servidor. Intenta de nuevo.";
   }
 
   Future<void> _openRegistration() async {

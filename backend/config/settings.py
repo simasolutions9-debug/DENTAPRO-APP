@@ -14,9 +14,12 @@ if not SECRET_KEY:
     raise ImproperlyConfigured("SECRET_KEY must be set in the environment.")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
-DENTAPRO_DEMO_TENANT_ID = env(
-    "DENTAPRO_DEMO_TENANT_ID",
-    default="00000000-0000-0000-0000-000000000001",
+DENTAPRO_DEFAULT_TENANT_ID = env(
+    "DENTAPRO_TENANT_ID",
+    default=env(
+        "DENTAPRO_DEMO_TENANT_ID",
+        default="00000000-0000-0000-0000-000000000001",
+    ),
 )
 
 CORS_ALLOWED_ORIGINS = env.list(

@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 from rest_framework.test import APIRequestFactory
 
 from core.branding import DEFAULT_BRANDING, TenantBrandingView
+from core.clinics import ClinicDirectoryView
 
 
 class TenantBrandingViewTests(SimpleTestCase):
@@ -77,3 +78,38 @@ class TenantBrandingViewTests(SimpleTestCase):
                 "logo_url": "https://example.test/logo.png",
             },
         )
+
+
+class ClinicDirectoryViewTests(SimpleTestCase):
+    @patch("core.clinics.ClinicBranding.objects.filter")
+    def test_lists_active_clinics_with_public_branding_only(self, filter_branding):
+        branding_query = filter_branding.return_value
+        branding_query.values.return_value = [
+            {
+                "tenant_id": "clinic-tenant-id",
+                "slug": "north-dental",
+                "clinic_name": "North Dental",
+                "logo_url": "https://example.test/logo.png",
+                "primary_color": "#123456",
+                "secondary_color": "#654321",
+            }
+        ]
+
+        request = APIRequestFactory().get("/api/v1/clinics/")
+        response = ClinicDirectoryView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data,
+            [
+                {
+                    "tenant_id": "clinic-tenant-id",
+                    "slug": "north-dental",
+                    "name": "North Dental",
+                    "logo_url": "https://example.test/logo.png",
+                    "primary_color": "#123456",
+                    "secondary_color": "#654321",
+                }
+            ],
+        )
+        filter_branding.assert_called_once_with(tenant__is_active=True)

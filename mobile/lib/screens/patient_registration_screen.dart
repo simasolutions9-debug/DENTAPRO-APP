@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../services/api_client.dart";
 import "../services/auth_service.dart";
 
 class PatientRegistrationScreen extends StatefulWidget {
@@ -50,20 +51,24 @@ class _PatientRegistrationScreenState extends State<PatientRegistrationScreen> {
       );
       if (!mounted) return;
       Navigator.of(context).pop(_emailController.text.trim().toLowerCase());
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(
-            content: Text(
-              "No se pudo crear la cuenta. Verifica los datos e intenta de nuevo.",
-            ),
+          SnackBar(
+            content: Text(_messageFor(error)),
             behavior: SnackBarBehavior.floating,
           ),
         );
     }
+  }
+
+  String _messageFor(Object error) {
+    if (error is ApiException) return error.message;
+    if (error is FormatException) return error.message.toString();
+    return "No se pudo conectar con el servidor. Intenta de nuevo.";
   }
 
   @override

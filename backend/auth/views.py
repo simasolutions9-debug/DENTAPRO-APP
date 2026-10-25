@@ -34,22 +34,30 @@ class PatientRegistrationView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        if not settings.DEBUG:
-            return Response(
-                {"detail": "El registro de demostración solo está habilitado en desarrollo."},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
         try:
             with transaction.atomic():
-                tenant_id = uuid.UUID(settings.DENTAPRO_DEMO_TENANT_ID)
-                tenant, _ = Tenant.objects.get_or_create(
-                    pk=tenant_id,
-                    defaults={"name": _DEMO_TENANT_NAME},
-                )
-                if tenant.name != _DEMO_TENANT_NAME or not tenant.is_active:
+                tenant_id = uuid.UUID(settings.DENTAPRO_DEFAULT_TENANT_ID)
+                if settings.DEBUG:
+                    tenant, _ = Tenant.objects.get_or_create(
+                        pk=tenant_id,
+                        defaults={"name": _DEMO_TENANT_NAME},
+                    )
+                    if tenant.name != _DEMO_TENANT_NAME:
+                        return Response(
+                            {"detail": "El tenant de desarrollo no está disponible."},
+                            status=status.HTTP_409_CONFLICT,
+                        )
+                else:
+                    tenant = Tenant.objects.filter(pk=tenant_id).first()
+                    if tenant is None:
+                        return Response(
+                            {"detail": "El tenant predeterminado no está configurado."},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        )
+
+                if not tenant.is_active:
                     return Response(
-                        {"detail": "El tenant de demostración no está disponible."},
+                        {"detail": "El tenant predeterminado está inactivo."},
                         status=status.HTTP_409_CONFLICT,
                     )
 
@@ -69,7 +77,7 @@ class PatientRegistrationView(APIView):
             )
         except ValueError:
             return Response(
-                {"detail": "El identificador del tenant de demostración no es válido."},
+                {"detail": "El identificador del tenant predeterminado no es válido."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
