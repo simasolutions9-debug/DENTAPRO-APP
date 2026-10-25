@@ -49,4 +49,43 @@ void main() {
     expect(find.text("Tu historial estará disponible próximamente."),
         findsOneWidget);
   });
+
+  testWidgets("dashboard search opens the clinic catalog", (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.text("SOY PACIENTE"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip("Buscar clínicas"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Encuentra tu clínica"), findsOneWidget);
+    expect(find.text("Clínica Sonríe"), findsOneWidget);
+    expect(find.text("Dra. Valentina Ortiz"), findsOneWidget);
+  });
+
+  testWidgets("clinic search filters the sample listings", (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.text("SOY PACIENTE"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip("Buscar clínicas"));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key("clinic-search-field")),
+      "Mateo Ruiz",
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text("Clínica Nova"), findsOneWidget);
+    expect(find.text("Clínica Sonríe"), findsNothing);
+    expect(find.text("Sonrisa Kids"), findsNothing);
+  });
 }

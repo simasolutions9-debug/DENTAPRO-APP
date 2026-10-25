@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../app_theme.dart";
 import "../widgets/dentapro_logo.dart";
+import "clinic_catalog_screen.dart";
 
 class PatientDashboardScreen extends StatelessWidget {
   const PatientDashboardScreen({super.key});
@@ -53,6 +54,13 @@ class PatientDashboardScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
           children: [
             _DashboardHeader(
+              onSearchTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ClinicCatalogScreen(),
+                  ),
+                );
+              },
               onNotificationsTap: () {
                 _showComingSoon(context, "Las notificaciones");
               },
@@ -124,8 +132,12 @@ class PatientDashboardScreen extends StatelessWidget {
 }
 
 class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({required this.onNotificationsTap});
+  const _DashboardHeader({
+    required this.onSearchTap,
+    required this.onNotificationsTap,
+  });
 
+  final VoidCallback onSearchTap;
   final VoidCallback onNotificationsTap;
 
   @override
@@ -134,6 +146,15 @@ class _DashboardHeader extends StatelessWidget {
       children: [
         const _MiniBrand(),
         const Spacer(),
+        IconButton(
+          onPressed: onSearchTap,
+          tooltip: "Buscar clínicas",
+          icon: const Icon(
+            Icons.search_rounded,
+            color: AppColors.navy,
+            size: 25,
+          ),
+        ),
         IconButton(
           onPressed: onNotificationsTap,
           tooltip: "Notificaciones",
