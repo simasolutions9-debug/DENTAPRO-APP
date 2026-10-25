@@ -1,9 +1,10 @@
 import uuid
 from contextlib import nullcontext
 from types import SimpleNamespace
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from django.test import SimpleTestCase, override_settings
+from django.test import override_settings
 from rest_framework.test import APIRequestFactory
 
 from auth.views import PatientRegistrationView
@@ -11,7 +12,7 @@ from auth.views import PatientRegistrationView
 _TENANT_ID = "10000000-0000-0000-0000-000000000001"
 
 
-class PatientRegistrationViewTests(SimpleTestCase):
+class PatientRegistrationViewTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory()
 

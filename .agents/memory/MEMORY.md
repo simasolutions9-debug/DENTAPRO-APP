@@ -1,1 +1,2 @@
 - [Flutter preview startup](flutter-preview-startup.md) — wait for the web-server ready log before judging an immediate blank preview after restart.
+- [Mocked Django view tests](mocked-django-view-tests.md) — use standard unittest tests for mocked auth views to avoid the observed Django teardown error.

@@ -15,7 +15,6 @@ class ClinicDirectoryView(APIView):
         branding_records = ClinicBranding.objects.filter(
             tenant__is_active=True,
         ).values(
-            "tenant_id",
             "slug",
             "clinic_name",
             "logo_url",
@@ -25,7 +24,6 @@ class ClinicDirectoryView(APIView):
         return Response(
             [
                 {
-                    "tenant_id": str(record["tenant_id"]),
                     "slug": record["slug"],
                     "name": record["clinic_name"],
                     "logo_url": record["logo_url"] or None,

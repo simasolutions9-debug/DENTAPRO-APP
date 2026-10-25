@@ -43,7 +43,6 @@ void main() {
       statusCode: 200,
       responseJson: jsonEncode([
         {
-          "tenant_id": "tenant-1",
           "slug": "clinica-norte",
           "name": "Clínica Norte",
           "logo_url": "https://example.test/norte.png",

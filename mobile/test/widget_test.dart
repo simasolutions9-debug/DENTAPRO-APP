@@ -279,12 +279,10 @@ void main() {
     expect(find.byKey(const Key("clinic-loading-indicator")), findsOneWidget);
     response.complete([
       const ClinicListing(
-        tenantId: "tenant-1",
         slug: "clinica-norte",
         name: "Clínica Norte",
       ),
       const ClinicListing(
-        tenantId: "tenant-2",
         slug: "clinica-sur",
         name: "Clínica Sur",
       ),
@@ -307,12 +305,10 @@ void main() {
           clinicRepository: _FakeClinicRepository(
             clinics: const [
               ClinicListing(
-                tenantId: "tenant-1",
                 slug: "clinica-nova",
                 name: "Clínica Nova",
               ),
               ClinicListing(
-                tenantId: "tenant-2",
                 slug: "clinica-rio",
                 name: "Clínica Río",
               ),

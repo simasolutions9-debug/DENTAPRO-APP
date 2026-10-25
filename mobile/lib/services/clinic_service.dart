@@ -8,23 +8,20 @@ abstract interface class ClinicRepository {
 
 class ClinicListing {
   const ClinicListing({
-    required this.tenantId,
     required this.slug,
     required this.name,
     this.logoUrl,
   });
 
-  final String tenantId;
   final String slug;
   final String name;
   final String? logoUrl;
 
   factory ClinicListing.fromJson(Map<String, dynamic> json) {
-    final tenantId = json["tenant_id"];
     final slug = json["slug"];
     final name = json["name"];
     final logoUrl = json["logo_url"];
-    if (tenantId is! String || slug is! String || name is! String) {
+    if (slug is! String || name is! String) {
       throw const FormatException(
         "La respuesta del catálogo no contiene los datos requeridos.",
       );
@@ -35,7 +32,6 @@ class ClinicListing {
     }
     final normalizedLogoUrl = logoUrl is String ? logoUrl.trim() : "";
     return ClinicListing(
-      tenantId: tenantId,
       slug: slug,
       name: name,
       logoUrl: normalizedLogoUrl.isEmpty ? null : normalizedLogoUrl,

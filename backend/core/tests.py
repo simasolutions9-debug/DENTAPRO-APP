@@ -86,7 +86,6 @@ class ClinicDirectoryViewTests(SimpleTestCase):
         branding_query = filter_branding.return_value
         branding_query.values.return_value = [
             {
-                "tenant_id": "clinic-tenant-id",
                 "slug": "north-dental",
                 "clinic_name": "North Dental",
                 "logo_url": "https://example.test/logo.png",
@@ -103,7 +102,6 @@ class ClinicDirectoryViewTests(SimpleTestCase):
             response.data,
             [
                 {
-                    "tenant_id": "clinic-tenant-id",
                     "slug": "north-dental",
                     "name": "North Dental",
                     "logo_url": "https://example.test/logo.png",
