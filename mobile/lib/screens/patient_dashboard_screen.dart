@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../app_theme.dart";
 import "../widgets/dentapro_logo.dart";
 import "clinic_catalog_screen.dart";
+import "dental_odontogram_screen.dart";
 
 class PatientDashboardScreen extends StatelessWidget {
   const PatientDashboardScreen({super.key});
@@ -93,7 +94,7 @@ class PatientDashboardScreen extends StatelessWidget {
                     icon: Icons.grid_view_rounded,
                     label: "Odontograma",
                     tint: AppColors.teal,
-                    onTap: () => _showComingSoon(context, "El odontograma"),
+                    onTap: () => _openOdontogram(context),
                   ),
                 ),
                 const SizedBox(width: 11),
@@ -102,7 +103,7 @@ class PatientDashboardScreen extends StatelessWidget {
                     icon: Icons.assignment_outlined,
                     label: "Historial",
                     tint: AppColors.cyan,
-                    onTap: () => _showComingSoon(context, "Tu historial"),
+                    onTap: () => _openOdontogram(context),
                   ),
                 ),
                 const SizedBox(width: 11),
@@ -126,6 +127,14 @@ class PatientDashboardScreen extends StatelessWidget {
             _SpecialistCard(),
           ],
         ),
+      ),
+    );
+  }
+
+  void _openOdontogram(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const DentalOdontogramScreen(),
       ),
     );
   }

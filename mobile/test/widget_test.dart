@@ -32,7 +32,7 @@ void main() {
     expect(find.text("Accesos rápidos"), findsOneWidget);
   });
 
-  testWidgets("quick-access sections provide placeholder feedback", (
+  testWidgets("patient quick access opens the mock odontogram and history", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -43,11 +43,27 @@ void main() {
     await tester.pumpWidget(const DentaproApp());
     await tester.tap(find.text("SOY PACIENTE"));
     await tester.pumpAndSettle();
-    await tester.tap(find.text("Historial"));
-    await tester.pump();
+    await tester.tap(find.text("Odontograma"));
+    await tester.pumpAndSettle();
 
-    expect(find.text("Tu historial estará disponible próximamente."),
-        findsOneWidget);
+    expect(find.text("Odontograma"), findsOneWidget);
+    expect(find.byKey(const Key("odontogram-chart")), findsOneWidget);
+
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Historial"));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Odontograma"), findsOneWidget);
+    expect(find.byKey(const Key("odontogram-chart")), findsOneWidget);
+    expect(find.text("ARCADA SUPERIOR"), findsOneWidget);
+    expect(find.text("Sanos"), findsOneWidget);
+    expect(find.text("Revisión"), findsNWidgets(2));
+    expect(find.text("Urgencia"), findsNWidgets(2));
+    expect(find.text("Historial de Tratamientos"), findsOneWidget);
+    expect(find.text("Limpieza dental"), findsOneWidget);
+    expect(find.text("Dra. Valentina Ortiz"), findsWidgets);
+    expect(find.text("24 oct 2026"), findsOneWidget);
   });
 
   testWidgets("dashboard search opens the clinic catalog", (tester) async {
