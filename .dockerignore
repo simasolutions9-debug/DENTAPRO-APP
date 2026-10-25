@@ -1,0 +1,16 @@
+.git
+.env
+.venv
+.pythonlibs
+node_modules
+artifacts
+lib
+scripts
+src
+uv.lock
+__pycache__
+*.py[cod]
+*.sqlite3
+.pytest_cache
+.mypy_cache
+.ruff_cache
