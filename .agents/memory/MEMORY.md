@@ -1,0 +1,1 @@
+- [Drizzle migration paths](drizzle-migration-paths.md) — keep schema and output paths relative to the database workspace.
