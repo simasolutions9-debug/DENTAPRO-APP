@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.utils import timezone
 
 
 class Tenant(models.Model):
@@ -42,3 +43,94 @@ class ClinicBranding(models.Model):
 
     def __str__(self) -> str:
         return self.slug
+
+
+class Paciente(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        db_column="tenant_id",
+        related_name="patients",
+    )
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=32, blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "paciente"
+        ordering = ["last_name", "first_name"]
+
+    def __str__(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
+
+class HistorialClinico(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        db_column="tenant_id",
+        related_name="clinical_records",
+    )
+    patient = models.ForeignKey(
+        Paciente,
+        on_delete=models.PROTECT,
+        related_name="clinical_records",
+    )
+    recorded_at = models.DateTimeField(default=timezone.now)
+    diagnosis = models.TextField(blank=True)
+    treatment = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "historial_clinico"
+        ordering = ["-recorded_at"]
+
+    def __str__(self) -> str:
+        return f"Clinical record for {self.patient}"
+
+
+class Cita(models.Model):
+    class Status(models.TextChoices):
+        SCHEDULED = "scheduled", "Scheduled"
+        CONFIRMED = "confirmed", "Confirmed"
+        COMPLETED = "completed", "Completed"
+        CANCELLED = "cancelled", "Cancelled"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant = models.ForeignKey(
+        Tenant,
+        on_delete=models.PROTECT,
+        db_column="tenant_id",
+        related_name="appointments",
+    )
+    patient = models.ForeignKey(
+        Paciente,
+        on_delete=models.PROTECT,
+        related_name="appointments",
+    )
+    scheduled_at = models.DateTimeField()
+    duration_minutes = models.PositiveSmallIntegerField(default=30)
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.SCHEDULED,
+    )
+    reason = models.CharField(max_length=240, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "cita"
+        ordering = ["scheduled_at"]
+
+    def __str__(self) -> str:
+        return f"Appointment for {self.patient} at {self.scheduled_at}"
