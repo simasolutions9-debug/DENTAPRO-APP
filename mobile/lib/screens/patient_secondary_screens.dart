@@ -3,6 +3,8 @@ import "package:flutter/material.dart";
 import "../app_theme.dart";
 import "../demo/demo_data.dart";
 import "../services/appointment_service.dart";
+import "../state/app_provider.dart";
+import "../state/app_user.dart";
 
 class PatientAppointmentsTab extends StatelessWidget {
   const PatientAppointmentsTab({
@@ -61,6 +63,9 @@ class PatientProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final appProvider = AppProviderScope.maybeOf(context);
+    final activeUser = appProvider?.currentUser;
+    final activePatient = appProvider?.currentPatient ?? patient;
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 24, 22, 30),
       children: [
@@ -90,22 +95,22 @@ class PatientProfileTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                patient?.name ?? "Paciente",
+                activePatient?.name ?? "Paciente",
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 16),
               _ProfileDetail(
                 icon: Icons.mail_outline_rounded,
                 label: "Correo",
-                value: patient?.email ?? "No disponible",
+                value: activePatient?.email ?? "No disponible",
               ),
               const SizedBox(height: 12),
               _ProfileDetail(
                 icon: Icons.phone_outlined,
                 label: "Teléfono",
-                value: patient?.phone ?? "No disponible",
+                value: activePatient?.phone ?? "No disponible",
               ),
-              if (patient != null) ...[
+              if (activePatient != null) ...[
                 const SizedBox(height: 12),
                 _ProfileDetail(
                   icon: Icons.badge_outlined,
@@ -118,9 +123,139 @@ class PatientProfileTab extends StatelessWidget {
                   label: "Citas de ejemplo",
                   value: "${appointments.length}",
                 ),
+                if (appProvider != null && activeUser?.role == "paciente") ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key("edit-profile-button"),
+                      onPressed: () => _showEditProfile(
+                        context,
+                        appProvider,
+                        activeUser!,
+                      ),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text("Editar perfil"),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showEditProfile(
+    BuildContext context,
+    AppProvider provider,
+    AppUser user,
+  ) =>
+      showDialog<void>(
+        context: context,
+        builder: (_) => _EditProfileDialog(provider: provider, user: user),
+      );
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({
+    required this.provider,
+    required this.user,
+  });
+
+  final AppProvider provider;
+  final AppUser user;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController =
+      TextEditingController(text: widget.user.name);
+  late final TextEditingController _phoneController =
+      TextEditingController(text: widget.user.phone);
+  bool _isSaving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _isSaving) return;
+    setState(() {
+      _isSaving = true;
+      _error = null;
+    });
+    try {
+      await widget.provider.updatePatientProfile(
+        name: _nameController.text,
+        phone: _phoneController.text,
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSaving = false;
+        _error = "No se pudo guardar el perfil: $error";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Editar perfil"),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              key: const Key("profile-name-field"),
+              controller: _nameController,
+              decoration: const InputDecoration(labelText: "Nombre"),
+              validator: (value) =>
+                  (value?.trim().isEmpty ?? true) ? "Ingresa tu nombre." : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              key: const Key("profile-phone-field"),
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(labelText: "Teléfono"),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text("Cancelar"),
+        ),
+        FilledButton(
+          key: const Key("profile-save-button"),
+          onPressed: _isSaving ? null : _save,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text("Guardar cambios"),
         ),
       ],
     );

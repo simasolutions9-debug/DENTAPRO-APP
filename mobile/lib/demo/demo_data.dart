@@ -90,14 +90,3 @@ class DemoClinicAvailabilityRepository implements ClinicAvailabilityRepository {
     ];
   }
 }
-
-class DemoAppointmentRepository implements AppointmentRepository {
-  const DemoAppointmentRepository();
-
-  @override
-  Future<void> createAppointment({
-    required String clinicSlug,
-    required String slotId,
-    required DateTime startsAt,
-  }) async {}
-}

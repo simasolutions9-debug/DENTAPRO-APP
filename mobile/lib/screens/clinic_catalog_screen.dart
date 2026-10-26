@@ -1,9 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
-import "../demo/demo_data.dart";
 import "../services/api_client.dart";
-import "../services/appointment_service.dart";
 import "../services/clinic_service.dart";
 import "booking_checkout_screen.dart";
 
@@ -12,16 +10,10 @@ class ClinicCatalogScreen extends StatefulWidget {
     super.key,
     this.clinicRepository,
     this.availabilityRepository,
-    this.appointmentRepository,
-    this.demoPatient,
-    this.demoAppointments,
   });
 
   final ClinicRepository? clinicRepository;
   final ClinicAvailabilityRepository? availabilityRepository;
-  final AppointmentRepository? appointmentRepository;
-  final DemoPatient? demoPatient;
-  final List<AppointmentSummary>? demoAppointments;
 
   @override
   State<ClinicCatalogScreen> createState() => _ClinicCatalogScreenState();
@@ -193,9 +185,6 @@ class _ClinicCatalogScreenState extends State<ClinicCatalogScreen> {
                   _ClinicCard(
                     clinic: clinic,
                     availabilityRepository: widget.availabilityRepository,
-                    appointmentRepository: widget.appointmentRepository,
-                    demoPatient: widget.demoPatient,
-                    demoAppointments: widget.demoAppointments,
                   ),
                   const SizedBox(height: 16),
                 ],
@@ -313,16 +302,10 @@ class _ClinicCard extends StatelessWidget {
   const _ClinicCard({
     required this.clinic,
     this.availabilityRepository,
-    this.appointmentRepository,
-    this.demoPatient,
-    this.demoAppointments,
   });
 
   final ClinicListing clinic;
   final ClinicAvailabilityRepository? availabilityRepository;
-  final AppointmentRepository? appointmentRepository;
-  final DemoPatient? demoPatient;
-  final List<AppointmentSummary>? demoAppointments;
 
   @override
   Widget build(BuildContext context) {
@@ -351,9 +334,6 @@ class _ClinicCard extends StatelessWidget {
                   clinicSlug: clinic.slug,
                   clinicName: clinic.name,
                   availabilityRepository: availabilityRepository,
-                  appointmentRepository: appointmentRepository,
-                  demoPatient: demoPatient,
-                  demoAppointments: demoAppointments,
                 ),
               ),
             ),

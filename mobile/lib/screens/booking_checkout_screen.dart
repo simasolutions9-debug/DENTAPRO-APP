@@ -2,11 +2,9 @@ import "package:flutter/material.dart";
 import "package:flutter_localizations/flutter_localizations.dart";
 
 import "../app_theme.dart";
-import "../demo/demo_data.dart";
 import "../services/api_client.dart";
-import "../services/appointment_service.dart";
 import "../services/clinic_service.dart";
-import "patient_dashboard_screen.dart";
+import "../state/app_provider.dart";
 
 class BookingCheckoutScreen extends StatefulWidget {
   const BookingCheckoutScreen({
@@ -14,17 +12,11 @@ class BookingCheckoutScreen extends StatefulWidget {
     required this.clinicSlug,
     required this.clinicName,
     this.availabilityRepository,
-    this.appointmentRepository,
-    this.demoPatient,
-    this.demoAppointments,
   });
 
   final String clinicSlug;
   final String clinicName;
   final ClinicAvailabilityRepository? availabilityRepository;
-  final AppointmentRepository? appointmentRepository;
-  final DemoPatient? demoPatient;
-  final List<AppointmentSummary>? demoAppointments;
 
   @override
   State<BookingCheckoutScreen> createState() => _BookingCheckoutScreenState();
@@ -64,8 +56,6 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
   late DateTime _selectedDate = _today;
   late final ClinicAvailabilityRepository _availabilityRepository =
       widget.availabilityRepository ?? ClinicService();
-  late final AppointmentRepository _appointmentRepository =
-      widget.appointmentRepository ?? AppointmentService();
 
   List<ClinicSlot> _slots = const [];
   ClinicSlot? _selectedSlot;
@@ -133,31 +123,31 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
       _bookingError = null;
     });
     try {
-      await _appointmentRepository.createAppointment(
+      final provider = AppProviderScope.maybeOf(context);
+      if (provider == null) {
+        throw StateError("La sesión local no está disponible.");
+      }
+      await provider.createLocalAppointment(
         clinicSlug: widget.clinicSlug,
-        slotId: slot.id,
+        clinicName: widget.clinicName,
         startsAt: slot.startsAt,
+        durationMinutes: slot.durationMinutes,
+        estimatedFee: slot.estimatedFee,
       );
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(
-          builder: (_) => widget.demoPatient == null
-              ? const PatientDashboardScreen()
-              : PatientDashboardScreen(
-                  demoPatient: widget.demoPatient,
-                  demoAppointments: widget.demoAppointments,
-                ),
-        ),
-        (_) => false,
-      );
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text("¡Cita agendada con éxito!"),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      setState(() {
+        _isBooking = false;
+        _selectedSlot = null;
+        _bookingError = null;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text("¡Cita confirmada!"),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -165,7 +155,8 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
         _bookingError = switch (error) {
           ApiException(:final message) => message,
           FormatException(:final message) => message.toString(),
-          _ => "No se pudo reservar el horario. Intenta de nuevo.",
+          StateError(:final message) => "$message",
+          _ => "No se pudo guardar la cita localmente. Intenta de nuevo.",
         };
       });
     }

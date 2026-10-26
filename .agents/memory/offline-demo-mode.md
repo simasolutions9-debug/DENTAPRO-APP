@@ -1,10 +1,10 @@
 ---
-name: Offline demo mode
-description: Data boundary for all screens reachable from the temporary patient demo login.
+name: Offline patient persistence
+description: Local data and network boundary for patient booking, dashboard, and demo flows.
 ---
 
-Every screen and route reachable in patient Demo Mode must use injected local mock data and must not make HTTP requests to the backend. This includes bottom tabs, quick actions, clinic catalog, and booking.
+Patient profiles and appointments are persisted locally in Hive. The patient dashboard reads its appointments from the local store, and confirming a booking must save locally without POSTing to the backend. Every route reachable in Demo Mode must remain offline, including bottom tabs, quick actions, clinic catalog, and booking.
 
-**Why:** the user explicitly required the APK demo to remain fully usable before the VPS is deployed, without accidental real API calls.
+**Why:** the user requires the app to support offline demonstrations before the Django VPS is deployed and explicitly specified local appointment persistence instead of an HTTP booking request.
 
-**How to apply:** pass the demo patient, appointments, and local repository fakes through navigation; keep the demo entry point disabled in release builds unless the user explicitly approves otherwise.
+**How to apply:** use the app provider and Hive storage for patient state and bookings; seed demonstration appointments once rather than hardcoding dashboard values; keep the demo entry point disabled in release builds unless the user explicitly approves otherwise.

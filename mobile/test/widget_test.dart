@@ -3,6 +3,7 @@ import "dart:async";
 import "package:dentapro_mobile/main.dart";
 import "package:dentapro_mobile/screens/booking_checkout_screen.dart";
 import "package:dentapro_mobile/screens/clinic_catalog_screen.dart";
+import "package:dentapro_mobile/screens/patient_dashboard_screen.dart";
 import "package:dentapro_mobile/services/appointment_service.dart";
 import "package:dentapro_mobile/services/api_client.dart";
 import "package:dentapro_mobile/services/clinic_service.dart";
@@ -88,15 +89,6 @@ class _FakeClinicAvailabilityRepository
     required DateTime date,
   }) async =>
       slots;
-}
-
-class _FakeAppointmentRepository implements AppointmentRepository {
-  @override
-  Future<void> createAppointment({
-    required String clinicSlug,
-    required String slotId,
-    required DateTime startsAt,
-  }) async {}
 }
 
 class _FakeAppointmentDashboardRepository
@@ -247,6 +239,35 @@ void main() {
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
   });
 
+  testWidgets("patient profile edits are saved in app state", (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Perfil"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key("edit-profile-button")));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key("profile-name-field")),
+      "Paciente Actualizado",
+    );
+    await tester.enterText(
+      find.byKey(const Key("profile-phone-field")),
+      "0987654321",
+    );
+    await tester.tap(find.byKey(const Key("profile-save-button")));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Paciente Actualizado"), findsOneWidget);
+    expect(find.text("0987654321"), findsOneWidget);
+  });
+
   testWidgets("demo quick actions push local screens and return to dashboard", (
     tester,
   ) async {
@@ -313,7 +334,16 @@ void main() {
     await tester.ensureVisible(find.text("Confirmar cita"));
     await tester.tap(find.text("Confirmar cita"));
     await tester.pumpAndSettle();
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("¡Cita confirmada!"), findsOneWidget);
+    expect(find.text("Selecciona un horario"), findsOneWidget);
+
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Citas"));
+    await tester.pumpAndSettle();
+    expect(find.text("Consulta dental"), findsOneWidget);
   });
 
   testWidgets("login sends credentials and routes by role", (tester) async {
@@ -462,12 +492,16 @@ void main() {
       clinicName: "Clínica Norte",
       reason: "Limpieza y revisión",
     );
-    await _loginAs(
-      tester,
-      appointmentsRepository: _FakeAppointmentDashboardRepository(
-        upcoming: [nextAppointment],
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PatientDashboardScreen(
+          appointmentsRepository: _FakeAppointmentDashboardRepository(
+            upcoming: [nextAppointment],
+          ),
+        ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(find.text("Hola"), findsOneWidget);
     expect(find.text("Limpieza y revisión"), findsOneWidget);
@@ -483,19 +517,23 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(
-      tester,
-      appointmentsRepository: _FakeAppointmentDashboardRepository(
-        upcoming: [
-          _appointment(
-            id: "history",
-            patientName: "Paciente",
-            scheduledAt: DateTime.now().add(const Duration(days: 3)),
-            reason: "Limpieza y revisión",
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PatientDashboardScreen(
+          appointmentsRepository: _FakeAppointmentDashboardRepository(
+            upcoming: [
+              _appointment(
+                id: "history",
+                patientName: "Paciente",
+                scheduledAt: DateTime.now().add(const Duration(days: 3)),
+                reason: "Limpieza y revisión",
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+    await tester.pumpAndSettle();
     await tester.tap(find.text("Odontograma"));
     await tester.pumpAndSettle();
 
@@ -630,7 +668,6 @@ void main() {
               durationMinutes: 30,
             ),
           ]),
-          appointmentRepository: _FakeAppointmentRepository(),
         ),
       ),
     );

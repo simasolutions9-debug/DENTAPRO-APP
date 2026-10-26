@@ -6,10 +6,10 @@ import "../demo/demo_data.dart";
 import "../services/api_client.dart";
 import "../services/appointment_service.dart";
 import "../services/auth_service.dart";
+import "../state/app_provider.dart";
+import "../state/app_user.dart";
 import "../widgets/dentapro_logo.dart";
-import "dentist_dashboard_screen.dart";
 import "patient_registration_screen.dart";
-import "patient_dashboard_screen.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -52,25 +52,22 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text,
       );
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
-
-      final dashboard = switch (session.role) {
-        "paciente" => PatientDashboardScreen(
-            appointmentsRepository: widget.appointmentsRepository,
-          ),
-        "dentista" => DentistDashboardScreen(
-            appointmentsRepository: widget.appointmentsRepository,
-          ),
-        _ => null,
-      };
-      if (dashboard == null) {
+      if (session.role != "paciente" && session.role != "dentista") {
+        setState(() => _isSubmitting = false);
         _showMessage("Este tipo de cuenta aún no tiene un panel disponible.");
         return;
       }
-
-      await Navigator.of(context).pushReplacement<void, void>(
-        MaterialPageRoute<void>(builder: (_) => dashboard),
+      await AppProviderScope.of(context).signIn(
+        AppUser(
+          id: session.patientId ?? _emailController.text.trim().toLowerCase(),
+          name: _nameFromEmail(_emailController.text),
+          email: _emailController.text.trim().toLowerCase(),
+          phone: "",
+          role: session.role,
+          isDemo: false,
+        ),
       );
+      if (mounted) setState(() => _isSubmitting = false);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
@@ -78,17 +75,41 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _enterDemoMode() {
+  String _nameFromEmail(String email) {
+    final localPart = email.trim().split("@").first;
+    final normalized = localPart.replaceAll(RegExp(r"[._-]+"), " ").trim();
+    if (normalized.isEmpty) return "Paciente";
+    return normalized
+        .split(RegExp(r"\s+"))
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : "${word[0].toUpperCase()}${word.substring(1)}",
+        )
+        .join(" ");
+  }
+
+  Future<void> _enterDemoMode() async {
     if (!kDebugMode) return;
-    final appointments = buildDemoAppointments();
-    Navigator.of(context).pushReplacement<void, void>(
-      MaterialPageRoute<void>(
-        builder: (_) => PatientDashboardScreen(
-          demoPatient: demoPatient,
-          demoAppointments: appointments,
+    setState(() => _isSubmitting = true);
+    try {
+      await AppProviderScope.of(context).signIn(
+        AppUser(
+          id: demoPatient.id,
+          name: demoPatient.name,
+          email: demoPatient.email,
+          phone: demoPatient.phone,
+          role: "paciente",
+          isDemo: true,
         ),
-      ),
-    );
+        initialAppointments: buildDemoAppointments(),
+      );
+      if (mounted) setState(() => _isSubmitting = false);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showMessage("No se pudo guardar la sesión local: $error");
+    }
   }
 
   String _messageFor(Object error) {

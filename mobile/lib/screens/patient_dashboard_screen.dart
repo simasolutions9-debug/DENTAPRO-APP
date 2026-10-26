@@ -4,6 +4,7 @@ import "../app_theme.dart";
 import "../demo/demo_data.dart";
 import "../services/api_client.dart";
 import "../services/appointment_service.dart";
+import "../state/app_provider.dart";
 import "../widgets/dentapro_logo.dart";
 import "clinic_catalog_screen.dart";
 import "dental_odontogram_screen.dart";
@@ -36,11 +37,11 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   bool _isLoading = true;
   String? _error;
   int _selectedTabIndex = 0;
+  bool _fallbackLoadStarted = false;
 
-  bool get _isDemoMode =>
-      widget.demoPatient != null || widget.displayName != null;
-
-  DemoPatient? get _patientForRoutes {
+  DemoPatient? _patientForRoutes(BuildContext context) {
+    final providerPatient = AppProviderScope.maybeOf(context)?.currentPatient;
+    if (providerPatient != null) return providerPatient;
     if (widget.demoPatient != null) return widget.demoPatient;
     final name = widget.displayName?.trim();
     if (name == null || name.isEmpty) return null;
@@ -55,21 +56,42 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    if (_isDemoMode) {
-      _appointments = List.unmodifiable(widget.demoAppointments ?? const []);
-      final upcoming = _appointments
-          .where(
-            (appointment) =>
-                appointment.status != "cancelled" &&
-                appointment.scheduledAt.isAfter(DateTime.now()),
-          )
-          .toList()
-        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-      _nextAppointment = upcoming.isEmpty ? null : upcoming.first;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final provider = AppProviderScope.maybeOf(context);
+    if (provider != null) {
+      _appointments = provider.appointments;
+      _nextAppointment = _findNextAppointment(_appointments);
       _isLoading = false;
-    } else {
-      _loadUpcomingAppointment();
+      _error = null;
+      return;
     }
+    if (_fallbackLoadStarted) return;
+    _fallbackLoadStarted = true;
+    if (widget.demoPatient != null || widget.demoAppointments != null) {
+      _appointments = List.unmodifiable(widget.demoAppointments ?? const []);
+      _nextAppointment = _findNextAppointment(_appointments);
+      _isLoading = false;
+      return;
+    }
+    _loadUpcomingAppointment();
+  }
+
+  AppointmentSummary? _findNextAppointment(
+    List<AppointmentSummary> appointments,
+  ) {
+    final upcoming = appointments
+        .where(
+          (appointment) =>
+              appointment.status != "cancelled" &&
+              appointment.scheduledAt.isAfter(DateTime.now()),
+        )
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    return upcoming.isEmpty ? null : upcoming.first;
   }
 
   Future<void> _loadUpcomingAppointment() async {
@@ -83,7 +105,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       if (!mounted) return;
       setState(() {
         _appointments = appointments;
-        _nextAppointment = appointments.isEmpty ? null : appointments.first;
+        _nextAppointment = _findNextAppointment(appointments);
         _isLoading = false;
       });
     } catch (error) {
@@ -96,6 +118,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           _ => "No se pudo cargar tu próxima cita.",
         };
       });
+    }
+  }
+
+  Future<void> _refreshAppointments() async {
+    final provider = AppProviderScope.maybeOf(context);
+    if (provider == null) {
+      await _loadUpcomingAppointment();
+    } else {
+      await provider.reloadAppointments();
     }
   }
 
@@ -112,7 +143,15 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = _patientForRoutes?.name ?? widget.displayName?.trim();
+    final provider = AppProviderScope.maybeOf(context);
+    final patient = _patientForRoutes(context);
+    final appointments = provider?.appointments ?? _appointments;
+    final nextAppointment = provider == null
+        ? _nextAppointment
+        : _findNextAppointment(appointments);
+    final isLoading = provider == null ? _isLoading : !provider.isReady;
+    final error = provider == null ? _error : null;
+    final displayName = patient?.name ?? widget.displayName?.trim();
     return Scaffold(
       bottomNavigationBar: NavigationBarTheme(
         data: NavigationBarThemeData(
@@ -163,14 +202,22 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         child: IndexedStack(
           index: _selectedTabIndex,
           children: [
-            _buildHomeTab(context, displayName),
+            _buildHomeTab(
+              context,
+              displayName,
+              patient,
+              appointments,
+              nextAppointment,
+              isLoading,
+              error,
+            ),
             PatientAppointmentsTab(
-              patient: _patientForRoutes,
-              appointments: _appointments,
+              patient: patient,
+              appointments: appointments,
             ),
             PatientProfileTab(
-              patient: _patientForRoutes,
-              appointments: _appointments,
+              patient: patient,
+              appointments: appointments,
             ),
           ],
         ),
@@ -178,11 +225,20 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
-  Widget _buildHomeTab(BuildContext context, String? displayName) => ListView(
+  Widget _buildHomeTab(
+    BuildContext context,
+    String? displayName,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+    AppointmentSummary? nextAppointment,
+    bool isLoading,
+    String? error,
+  ) =>
+      ListView(
         padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
         children: [
           _DashboardHeader(
-            onSearchTap: () => _openClinicCatalog(context),
+            onSearchTap: () => _openClinicCatalog(context, patient),
             onNotificationsTap: () {
               _showComingSoon(context, "Las notificaciones");
             },
@@ -201,12 +257,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           ),
           const SizedBox(height: 22),
           _NextAppointmentCard(
-            appointment: _nextAppointment,
-            isLoading: _isLoading,
-            error: _error,
-            onRetry: _loadUpcomingAppointment,
-            onTap:
-                _nextAppointment == null ? null : () => _openHistory(context),
+            appointment: nextAppointment,
+            isLoading: isLoading,
+            error: error,
+            onRetry: _refreshAppointments,
+            onTap: nextAppointment == null
+                ? null
+                : () => _openHistory(context, patient, appointments),
           ),
           const SizedBox(height: 27),
           _SectionHeading(
@@ -222,7 +279,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   icon: Icons.grid_view_rounded,
                   label: "Odontograma",
                   tint: AppColors.teal,
-                  onTap: () => _openOdontogram(context),
+                  onTap: () => _openOdontogram(context, patient, appointments),
                 ),
               ),
               const SizedBox(width: 11),
@@ -231,7 +288,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   icon: Icons.assignment_outlined,
                   label: "Historial",
                   tint: AppColors.cyan,
-                  onTap: () => _openHistory(context),
+                  onTap: () => _openHistory(context, patient, appointments),
                 ),
               ),
               const SizedBox(width: 11),
@@ -240,7 +297,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   icon: Icons.credit_card_outlined,
                   label: "Pagos",
                   tint: AppColors.blue,
-                  onTap: () => _openPayments(context),
+                  onTap: () => _openPayments(context, patient, appointments),
                 ),
               ),
             ],
@@ -248,51 +305,63 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         ],
       );
 
-  void _openClinicCatalog(BuildContext context) {
-    final demoMode = _isDemoMode;
+  void _openClinicCatalog(
+    BuildContext context,
+    DemoPatient? patient,
+  ) {
+    final demoMode =
+        AppProviderScope.maybeOf(context)?.isDemoMode ?? patient != null;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ClinicCatalogScreen(
           clinicRepository: demoMode ? const DemoClinicRepository() : null,
           availabilityRepository:
               demoMode ? const DemoClinicAvailabilityRepository() : null,
-          appointmentRepository:
-              demoMode ? const DemoAppointmentRepository() : null,
-          demoPatient: demoMode ? _patientForRoutes : null,
-          demoAppointments: demoMode ? _appointments : null,
         ),
       ),
     );
   }
 
-  void _openOdontogram(BuildContext context) {
+  void _openOdontogram(
+    BuildContext context,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => OdontogramScreen(
-          patient: _patientForRoutes,
-          appointments: _appointments,
+          patient: patient,
+          appointments: appointments,
         ),
       ),
     );
   }
 
-  void _openHistory(BuildContext context) {
+  void _openHistory(
+    BuildContext context,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => HistoryScreen(
-          patient: _patientForRoutes,
-          appointments: _appointments,
+          patient: patient,
+          appointments: appointments,
         ),
       ),
     );
   }
 
-  void _openPayments(BuildContext context) {
+  void _openPayments(
+    BuildContext context,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PaymentsScreen(
-          patient: _patientForRoutes,
-          appointments: _appointments,
+          patient: patient,
+          appointments: appointments,
         ),
       ),
     );
