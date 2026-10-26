@@ -2,8 +2,7 @@ import "package:flutter/material.dart";
 
 import "app_theme.dart";
 import "screens/login_screen.dart";
-import "screens/dentist_dashboard_screen.dart";
-import "screens/patient_dashboard_screen.dart";
+import "screens/role_dashboard_screen.dart";
 import "services/appointment_service.dart";
 import "state/app_provider.dart";
 import "services/auth_service.dart";
@@ -20,11 +19,13 @@ class DentaproApp extends StatefulWidget {
     this.appProvider,
     this.authRepository,
     this.appointmentsRepository,
+    this.useMockRoleAuth,
   });
 
   final AppProvider? appProvider;
   final AuthRepository? authRepository;
   final AppointmentDashboardRepository? appointmentsRepository;
+  final bool? useMockRoleAuth;
 
   @override
   State<DentaproApp> createState() => _DentaproAppState();
@@ -51,6 +52,7 @@ class _DentaproAppState extends State<DentaproApp> {
         home: _DentaproHome(
           authRepository: widget.authRepository,
           appointmentsRepository: widget.appointmentsRepository,
+          useMockRoleAuth: widget.useMockRoleAuth,
         ),
       ),
     );
@@ -61,10 +63,18 @@ class _DentaproHome extends StatelessWidget {
   const _DentaproHome({
     this.authRepository,
     this.appointmentsRepository,
+    this.useMockRoleAuth,
   });
 
   final AuthRepository? authRepository;
   final AppointmentDashboardRepository? appointmentsRepository;
+  final bool? useMockRoleAuth;
+
+  Widget _loginBuilder(BuildContext context) => LoginScreen(
+        authRepository: authRepository,
+        appointmentsRepository: appointmentsRepository,
+        useMockRoleAuth: useMockRoleAuth,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -76,26 +86,11 @@ class _DentaproHome extends StatelessWidget {
     }
 
     final user = provider.currentUser;
-    if (user == null) {
-      return LoginScreen(
-        authRepository: authRepository,
-        appointmentsRepository: appointmentsRepository,
-      );
-    }
-    return switch (user.role) {
-      "paciente" => PatientDashboardScreen(
-          displayName: user.name,
-          demoPatient: provider.isDemoMode ? provider.currentPatient : null,
-          demoAppointments: provider.appointments,
-          appointmentsRepository: appointmentsRepository,
-        ),
-      "dentista" => DentistDashboardScreen(
-          appointmentsRepository: appointmentsRepository,
-        ),
-      _ => LoginScreen(
-          authRepository: authRepository,
-          appointmentsRepository: appointmentsRepository,
-        ),
-    };
+    if (user == null) return _loginBuilder(context);
+    return RoleDashboardScreen(
+      authRepository: authRepository,
+      appointmentsRepository: appointmentsRepository,
+      loginBuilder: _loginBuilder,
+    );
   }
 }

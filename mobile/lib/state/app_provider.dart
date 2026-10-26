@@ -77,6 +77,13 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> signOut() async {
+    await _storage.clearCurrentUser();
+    _currentUser = null;
+    _appointments = const [];
+    notifyListeners();
+  }
+
   Future<void> updatePatientProfile({
     required String name,
     required String phone,

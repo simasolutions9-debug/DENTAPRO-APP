@@ -64,6 +64,13 @@ class _MemoryTokenStore implements AuthTokenStore {
 
   @override
   Future<String?> readPatientId() async => patientId;
+
+  @override
+  Future<void> clearTokens() async {
+    accessToken = null;
+    refreshToken = null;
+    patientId = null;
+  }
 }
 
 String _jwt(Map<String, Object> claims) {
@@ -73,6 +80,20 @@ String _jwt(Map<String, Object> claims) {
 }
 
 void main() {
+  test("logout clears the locally stored credentials", () async {
+    final tokenStore = _MemoryTokenStore()
+      ..accessToken = "access-token"
+      ..refreshToken = "refresh-token"
+      ..patientId = "patient-1";
+    final service = AuthService(tokenStore: tokenStore);
+
+    await service.logout();
+
+    expect(tokenStore.accessToken, isNull);
+    expect(tokenStore.refreshToken, isNull);
+    expect(tokenStore.patientId, isNull);
+  });
+
   test("login sends tenant id and saves both JWTs", () async {
     final access = _jwt({
       "role": "paciente",

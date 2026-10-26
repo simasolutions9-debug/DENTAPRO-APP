@@ -18,6 +18,8 @@ abstract interface class AuthRepository {
     required String password,
     String phone,
   });
+
+  Future<void> logout();
 }
 
 abstract interface class AuthTokenStore {
@@ -30,6 +32,8 @@ abstract interface class AuthTokenStore {
   Future<String?> readAccessToken();
 
   Future<String?> readPatientId();
+
+  Future<void> clearTokens();
 }
 
 class SecureAuthTokenStore implements AuthTokenStore {
@@ -62,6 +66,13 @@ class SecureAuthTokenStore implements AuthTokenStore {
 
   @override
   Future<String?> readPatientId() => _storage.read(key: _patientIdKey);
+
+  @override
+  Future<void> clearTokens() async {
+    await _storage.delete(key: _accessTokenKey);
+    await _storage.delete(key: _refreshTokenKey);
+    await _storage.delete(key: _patientIdKey);
+  }
 }
 
 class AuthSession {
@@ -165,6 +176,9 @@ class AuthService implements AuthRepository {
       throw ApiException.fromDio(exception);
     }
   }
+
+  @override
+  Future<void> logout() => _tokenStore.clearTokens();
 
   Map<String, dynamic> _decodeJwtClaims(String token) {
     final parts = token.split(".");

@@ -56,10 +56,12 @@ class PatientProfileTab extends StatelessWidget {
     super.key,
     this.patient,
     this.appointments = const [],
+    this.onLogout,
   });
 
   final DemoPatient? patient;
   final List<AppointmentSummary> appointments;
+  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -114,13 +116,14 @@ class PatientProfileTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 _ProfileDetail(
                   icon: Icons.badge_outlined,
-                  label: "Modo",
-                  value: "Demostración sin conexión",
+                  label: "Tipo de cuenta",
+                  value:
+                      activeUser?.role == "paciente" ? "Paciente" : "Usuario",
                 ),
                 const SizedBox(height: 12),
                 _ProfileDetail(
                   icon: Icons.event_note_outlined,
-                  label: "Citas de ejemplo",
+                  label: "Citas guardadas",
                   value: "${appointments.length}",
                 ),
                 if (appProvider != null && activeUser?.role == "paciente") ...[
@@ -136,6 +139,18 @@ class PatientProfileTab extends StatelessWidget {
                       ),
                       icon: const Icon(Icons.edit_outlined),
                       label: const Text("Editar perfil"),
+                    ),
+                  ),
+                ],
+                if (onLogout != null) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key("patient-logout-button"),
+                      onPressed: onLogout,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text("Cerrar sesión"),
                     ),
                   ),
                 ],
@@ -289,7 +304,7 @@ class HistoryScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            "Registros locales de esta demostración.",
+            "Registros de tus citas guardadas localmente.",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
@@ -297,7 +312,7 @@ class HistoryScreen extends StatelessWidget {
             const _EmptyState(
               icon: Icons.history_rounded,
               title: "Sin registros",
-              message: "No hay citas de ejemplo para mostrar.",
+              message: "No hay citas para mostrar.",
             )
           else
             for (final appointment in sortedAppointments) ...[
@@ -339,7 +354,7 @@ class PaymentsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            "Vista de demostración. No se realizan cobros.",
+            "Vista informativa. No se realizan cobros.",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 18),
@@ -366,7 +381,7 @@ class PaymentsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 Text(
-                  "Importe de ejemplo basado en las citas mock.",
+                  "Tarifa estimada basada en tus citas guardadas.",
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -447,10 +462,12 @@ class PatientSettingsScreen extends StatelessWidget {
     super.key,
     this.patient,
     this.appointments = const [],
+    this.onLogout,
   });
 
   final DemoPatient? patient;
   final List<AppointmentSummary> appointments;
+  final VoidCallback? onLogout;
 
   @override
   Widget build(BuildContext context) {
@@ -460,6 +477,7 @@ class PatientSettingsScreen extends StatelessWidget {
       body: PatientProfileTab(
         patient: patient,
         appointments: appointments,
+        onLogout: onLogout,
       ),
     );
   }

@@ -10,22 +10,28 @@ import "../state/app_provider.dart";
 import "../state/app_user.dart";
 import "../widgets/dentapro_logo.dart";
 import "patient_registration_screen.dart";
+import "role_dashboard_screen.dart";
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
     this.authRepository,
     this.appointmentsRepository,
+    this.useMockRoleAuth,
   });
 
   final AuthRepository? authRepository;
   final AppointmentDashboardRepository? appointmentsRepository;
+  final bool? useMockRoleAuth;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _mockRbacBuildFlag =
+      bool.fromEnvironment("DENTAPRO_MOCK_RBAC", defaultValue: false);
+
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -34,6 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isSubmitting = false;
   bool _hidePassword = true;
+
+  bool get _useMockRoleAuth =>
+      widget.useMockRoleAuth ?? (kDebugMode || _mockRbacBuildFlag);
 
   @override
   void dispose() {
@@ -47,6 +56,16 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      if (_useMockRoleAuth) {
+        final user = _mockUserForEmail(_emailController.text);
+        await _completeLogin(
+          user,
+          initialAppointments:
+              user.role == "paciente" ? _mockAppointmentsFor(user) : const [],
+        );
+        return;
+      }
+
       final session = await _authRepository.login(
         email: _emailController.text,
         password: _passwordController.text,
@@ -57,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _showMessage("Este tipo de cuenta aún no tiene un panel disponible.");
         return;
       }
-      await AppProviderScope.of(context).signIn(
+      await _completeLogin(
         AppUser(
           id: session.patientId ?? _emailController.text.trim().toLowerCase(),
           name: _nameFromEmail(_emailController.text),
@@ -67,13 +86,76 @@ class _LoginScreenState extends State<LoginScreen> {
           isDemo: false,
         ),
       );
-      if (mounted) setState(() => _isSubmitting = false);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       _showMessage(_messageFor(error));
     }
   }
+
+  Future<void> _completeLogin(
+    AppUser user, {
+    List<AppointmentSummary> initialAppointments = const [],
+  }) async {
+    await AppProviderScope.of(context).signIn(
+      user,
+      initialAppointments: initialAppointments,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(builder: (_) => _roleDashboardRoute()),
+    );
+  }
+
+  Widget _roleDashboardRoute() => RoleDashboardScreen(
+        authRepository: _authRepository,
+        appointmentsRepository: widget.appointmentsRepository,
+        loginBuilder: (_) => LoginScreen(
+          authRepository: _authRepository,
+          appointmentsRepository: widget.appointmentsRepository,
+          useMockRoleAuth: widget.useMockRoleAuth,
+        ),
+      );
+
+  AppUser _mockUserForEmail(String email) {
+    final normalizedEmail = email.trim().toLowerCase();
+    final role = switch (normalizedEmail) {
+      "simasolutions9@gmail.com" => "super_admin",
+      _ when normalizedEmail.contains("distribuidor") => "distribuidor",
+      _ => "paciente",
+    };
+    final name = switch (role) {
+      "super_admin" => "SIMA Admin",
+      "distribuidor" => "Distribuidor",
+      _ => _nameFromEmail(normalizedEmail),
+    };
+    return AppUser(
+      id: "mock:$normalizedEmail",
+      name: name,
+      email: normalizedEmail,
+      phone: "",
+      role: role,
+      isDemo: role == "paciente",
+    );
+  }
+
+  List<AppointmentSummary> _mockAppointmentsFor(AppUser user) =>
+      buildDemoAppointments()
+          .map(
+            (appointment) => AppointmentSummary(
+              id: "${user.id}:${appointment.id}",
+              patientId: user.id,
+              patientName: user.name,
+              clinicSlug: appointment.clinicSlug,
+              clinicName: appointment.clinicName,
+              scheduledAt: appointment.scheduledAt,
+              durationMinutes: appointment.durationMinutes,
+              status: appointment.status,
+              estimatedFee: appointment.estimatedFee,
+              reason: appointment.reason,
+            ),
+          )
+          .toList(growable: false);
 
   String _nameFromEmail(String email) {
     final localPart = email.trim().split("@").first;
@@ -87,29 +169,6 @@ class _LoginScreenState extends State<LoginScreen> {
               : "${word[0].toUpperCase()}${word.substring(1)}",
         )
         .join(" ");
-  }
-
-  Future<void> _enterDemoMode() async {
-    if (!kDebugMode) return;
-    setState(() => _isSubmitting = true);
-    try {
-      await AppProviderScope.of(context).signIn(
-        AppUser(
-          id: demoPatient.id,
-          name: demoPatient.name,
-          email: demoPatient.email,
-          phone: demoPatient.phone,
-          role: "paciente",
-          isDemo: true,
-        ),
-        initialAppointments: buildDemoAppointments(),
-      );
-      if (mounted) setState(() => _isSubmitting = false);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _isSubmitting = false);
-      _showMessage("No se pudo guardar la sesión local: $error");
-    }
   }
 
   String _messageFor(Object error) {
@@ -222,9 +281,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        validator: (value) => (value ?? "").isEmpty
-                            ? "Ingresa tu contraseña."
-                            : null,
+                        validator: (value) =>
+                            !_useMockRoleAuth && (value ?? "").isEmpty
+                                ? "Ingresa tu contraseña."
+                                : null,
                       ),
                       const SizedBox(height: 22),
                       SizedBox(
@@ -244,14 +304,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text("Ingresar"),
                         ),
                       ),
-                      if (kDebugMode)
-                        TextButton(
-                          key: const Key("demo-login-button"),
-                          onPressed: _isSubmitting ? null : _enterDemoMode,
-                          child: const Text(
-                            "Entrar en Modo Demo (Sin conexión)",
-                          ),
-                        ),
                       const SizedBox(height: 17),
                       Wrap(
                         alignment: WrapAlignment.center,

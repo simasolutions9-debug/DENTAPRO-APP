@@ -17,12 +17,14 @@ class PatientDashboardScreen extends StatefulWidget {
     this.displayName,
     this.demoPatient,
     this.demoAppointments,
+    this.onLogout,
   });
 
   final AppointmentDashboardRepository? appointmentsRepository;
   final String? displayName;
   final DemoPatient? demoPatient;
   final List<AppointmentSummary>? demoAppointments;
+  final VoidCallback? onLogout;
 
   @override
   State<PatientDashboardScreen> createState() => _PatientDashboardScreenState();
@@ -207,6 +209,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             PatientProfileTab(
               patient: patient,
               appointments: appointments,
+              onLogout: widget.onLogout,
             ),
           ],
         ),
@@ -385,6 +388,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         builder: (_) => PatientSettingsScreen(
           patient: patient,
           appointments: appointments,
+          onLogout: widget.onLogout,
         ),
       ),
     );

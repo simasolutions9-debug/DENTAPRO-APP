@@ -20,6 +20,7 @@ class _FakeAuthRepository implements AuthRepository {
   String? submittedPassword;
   Map<String, String>? submittedRegistration;
   int loginCalls = 0;
+  int logoutCalls = 0;
 
   @override
   Future<AuthSession> login({
@@ -55,6 +56,11 @@ class _FakeAuthRepository implements AuthRepository {
       "password": password,
       "phone": phone,
     };
+  }
+
+  @override
+  Future<void> logout() async {
+    logoutCalls++;
   }
 }
 
@@ -148,11 +154,13 @@ Future<void> _loginAs(
   String role = "paciente",
   _FakeAuthRepository? repository,
   AppointmentDashboardRepository? appointmentsRepository,
+  bool useMockRoleAuth = false,
 }) async {
   final auth = repository ?? _FakeAuthRepository(role: role);
   await tester.pumpWidget(
     DentaproApp(
       authRepository: auth,
+      useMockRoleAuth: useMockRoleAuth,
       appointmentsRepository:
           appointmentsRepository ?? _FakeAppointmentDashboardRepository(),
     ),
@@ -169,6 +177,30 @@ Future<void> _loginAs(
   await tester.pumpAndSettle();
 }
 
+Future<_FakeAuthRepository> _loginAsMockUser(
+  WidgetTester tester, {
+  required String email,
+}) async {
+  final authRepository = _FakeAuthRepository(failLogin: true);
+  await tester.pumpWidget(
+    DentaproApp(
+      authRepository: authRepository,
+      useMockRoleAuth: true,
+      appointmentsRepository: _FakeAppointmentDashboardRepository(),
+    ),
+  );
+  await tester.enterText(
+    find.byKey(const Key("login-email-field")),
+    email,
+  );
+  await tester.tap(find.byKey(const Key("login-submit-button")));
+  await tester.pumpAndSettle();
+  return authRepository;
+}
+
+Future<_FakeAuthRepository> _loginAsMockPatient(WidgetTester tester) =>
+    _loginAsMockUser(tester, email: "cliente@demo.com");
+
 void main() {
   testWidgets("login shows email and password fields", (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -183,30 +215,27 @@ void main() {
     expect(find.byKey(const Key("login-password-field")), findsOneWidget);
     expect(find.text("Ingresar"), findsOneWidget);
     expect(find.text("Crear cuenta"), findsOneWidget);
-    expect(find.text("Entrar en Modo Demo (Sin conexión)"), findsOneWidget);
+    expect(find.text("Entrar en Modo Demo (Sin conexión)"), findsNothing);
+    expect(find.byKey(const Key("demo-login-button")), findsNothing);
   });
 
-  testWidgets("demo login bypasses HTTP and opens a mocked patient dashboard", (
-    tester,
-  ) async {
+  testWidgets("mock role login routes client email without HTTP",
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final authRepository = _FakeAuthRepository(failLogin: true);
-    await tester.pumpWidget(DentaproApp(authRepository: authRepository));
-
-    await tester.tap(find.byKey(const Key("demo-login-button")));
-    await tester.pumpAndSettle();
+    final authRepository = await _loginAsMockPatient(tester);
 
     expect(authRepository.loginCalls, 0);
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsOneWidget);
     expect(find.text("Clínica Sonrisa"), findsOneWidget);
     expect(find.text("Control de rutina"), findsOneWidget);
   });
 
-  testWidgets("demo bottom navigation switches tabs and selection state", (
+  testWidgets(
+      "mock RBAC opens Super Admin sections and logout returns to login", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -214,9 +243,101 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.byKey(const Key("demo-login-button")));
+    final authRepository = await _loginAsMockUser(
+      tester,
+      email: "SimaSolutions9@gmail.com",
+    );
+
+    expect(authRepository.loginCalls, 0);
+    expect(find.byKey(const Key("super-admin-dashboard")), findsOneWidget);
+    expect(find.text("Panel de Super Admin"), findsOneWidget);
+    expect(
+      tester.state<NavigatorState>(find.byType(Navigator).first).canPop(),
+      isFalse,
+    );
+
+    await tester.tap(find.text("Gestión de Distribuidores"));
     await tester.pumpAndSettle();
+    expect(find.text("Esta sección estará disponible próximamente."),
+        findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key("dashboard-logout-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Bienvenido de nuevo"), findsOneWidget);
+    expect(find.byKey(const Key("super-admin-dashboard")), findsNothing);
+    expect(authRepository.logoutCalls, 1);
+  });
+
+  testWidgets("mock RBAC opens Distributor sections and logs out", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final authRepository = await _loginAsMockUser(
+      tester,
+      email: "distribuidor@demo.com",
+    );
+
+    expect(find.byKey(const Key("distributor-dashboard")), findsOneWidget);
+    expect(find.text("Panel de Distribuidor"), findsOneWidget);
+
+    await tester.tap(find.text("Ver Clientes"));
+    await tester.pumpAndSettle();
+    expect(
+      find.text("Esta sección estará disponible próximamente."),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text("Ver Clínicas"));
+    await tester.pumpAndSettle();
+    expect(
+      find.text("Esta sección estará disponible próximamente."),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key("dashboard-logout-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Bienvenido de nuevo"), findsOneWidget);
+    expect(authRepository.logoutCalls, 1);
+  });
+
+  testWidgets("patient logout clears session and returns to login",
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final authRepository = await _loginAsMockPatient(tester);
+    await tester.tap(find.text("Perfil"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key("patient-logout-button")));
+    await tester.pumpAndSettle();
+
+    expect(find.text("Bienvenido de nuevo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsNothing);
+    expect(authRepository.logoutCalls, 1);
+  });
+
+  testWidgets(
+      "mock patient bottom navigation switches tabs and selection state", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _loginAsMockPatient(tester);
 
     final navigationBar = find.byType(NavigationBar);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
@@ -230,12 +351,12 @@ void main() {
     await tester.tap(find.text("Perfil"));
     await tester.pumpAndSettle();
     expect(find.text("Mi perfil"), findsOneWidget);
-    expect(find.text("Paciente Demo"), findsOneWidget);
+    expect(find.text("Cliente"), findsOneWidget);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 2);
 
     await tester.tap(find.text("Inicio"));
     await tester.pumpAndSettle();
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsOneWidget);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
   });
 
@@ -245,9 +366,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.byKey(const Key("demo-login-button")));
-    await tester.pumpAndSettle();
+    await _loginAsMockPatient(tester);
     await tester.tap(find.text("Perfil"));
     await tester.pumpAndSettle();
 
@@ -276,22 +395,20 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.byKey(const Key("demo-login-button")));
-    await tester.pumpAndSettle();
+    await _loginAsMockPatient(tester);
 
     await tester.ensureVisible(find.text("Odontograma"));
     await tester.tap(find.text("Odontograma"));
     await tester.pumpAndSettle();
-    expect(find.text("Paciente Demo · 2 citas de ejemplo"), findsOneWidget);
+    expect(find.text("Cliente · 2 citas de ejemplo"), findsOneWidget);
     await tester.tap(find.byTooltip("Volver"));
     await tester.pumpAndSettle();
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsOneWidget);
 
     await tester.ensureVisible(find.text("Historial"));
     await tester.tap(find.text("Historial"));
     await tester.pumpAndSettle();
-    expect(find.text("Historial de Paciente Demo"), findsOneWidget);
+    expect(find.text("Historial de Cliente"), findsOneWidget);
     expect(find.text("Limpieza y revisión"), findsOneWidget);
     await tester.tap(find.byTooltip("Volver"));
     await tester.pumpAndSettle();
@@ -299,14 +416,14 @@ void main() {
     await tester.ensureVisible(find.text("Pagos"));
     await tester.tap(find.text("Pagos"));
     await tester.pumpAndSettle();
-    expect(find.text("Pagos de Paciente Demo"), findsOneWidget);
+    expect(find.text("Pagos de Cliente"), findsOneWidget);
     expect(
-      find.text("Vista de demostración. No se realizan cobros."),
+      find.text("Vista informativa. No se realizan cobros."),
       findsOneWidget,
     );
     await tester.tap(find.byTooltip("Volver"));
     await tester.pumpAndSettle();
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsOneWidget);
   });
 
   testWidgets("dashboard header, appointment, and see-all push their screens", (
@@ -317,9 +434,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.byKey(const Key("demo-login-button")));
-    await tester.pumpAndSettle();
+    await _loginAsMockPatient(tester);
 
     await tester.tap(find.byKey(const Key("dashboard-notifications-button")));
     await tester.pumpAndSettle();
@@ -347,10 +462,10 @@ void main() {
     );
     await tester.tap(find.byKey(const Key("dashboard-see-all-button")));
     await tester.pumpAndSettle();
-    expect(find.text("Historial de Paciente Demo"), findsOneWidget);
+    expect(find.text("Historial de Cliente"), findsOneWidget);
     await tester.tap(find.byTooltip("Volver"));
     await tester.pumpAndSettle();
-    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Hola, Cliente"), findsOneWidget);
   });
 
   testWidgets("demo clinic booking stays on injected local data",
@@ -360,9 +475,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const DentaproApp());
-    await tester.tap(find.byKey(const Key("demo-login-button")));
-    await tester.pumpAndSettle();
+    await _loginAsMockPatient(tester);
 
     await tester.tap(find.byTooltip("Buscar clínicas"));
     await tester.pumpAndSettle();

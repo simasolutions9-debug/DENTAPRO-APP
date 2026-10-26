@@ -8,6 +8,8 @@ abstract interface class LocalAppStorage {
 
   Future<void> saveCurrentUser(AppUser user);
 
+  Future<void> clearCurrentUser();
+
   Future<List<AppointmentSummary>> readAppointments(String patientId);
 
   Future<void> saveAppointment(AppointmentSummary appointment);
@@ -23,6 +25,11 @@ class MemoryLocalAppStorage implements LocalAppStorage {
   @override
   Future<void> saveCurrentUser(AppUser user) async {
     _currentUser = user;
+  }
+
+  @override
+  Future<void> clearCurrentUser() async {
+    _currentUser = null;
   }
 
   @override
@@ -84,6 +91,11 @@ class HiveLocalAppStorage implements LocalAppStorage {
   Future<void> saveCurrentUser(AppUser user) async {
     await _profiles.put(user.id, user.toMap());
     await _session.put(_activeUserKey, user.id);
+  }
+
+  @override
+  Future<void> clearCurrentUser() async {
+    await _session.delete(_activeUserKey);
   }
 
   @override

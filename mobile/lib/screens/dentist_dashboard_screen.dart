@@ -9,9 +9,11 @@ class DentistDashboardScreen extends StatefulWidget {
   const DentistDashboardScreen({
     super.key,
     this.appointmentsRepository,
+    this.onLogout,
   });
 
   final AppointmentDashboardRepository? appointmentsRepository;
+  final VoidCallback? onLogout;
 
   @override
   State<DentistDashboardScreen> createState() => _DentistDashboardScreenState();
@@ -133,6 +135,13 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
               ),
         ),
         actions: [
+          if (widget.onLogout != null)
+            IconButton(
+              key: const Key("dentist-logout-button"),
+              tooltip: "Cerrar sesión",
+              onPressed: widget.onLogout,
+              icon: const Icon(Icons.logout_rounded),
+            ),
           Padding(
             padding: const EdgeInsets.only(right: 19),
             child: const CircleAvatar(

@@ -2,4 +2,4 @@
 - [Mocked Django view tests](mocked-django-view-tests.md) — use standard unittest tests for mocked auth views to avoid the observed Django teardown error.
 - [Cross-clinic booking](cross-clinic-booking.md) — allow booking at any listed clinic, but only into slots the clinic has published.
 - [Appointment dashboard figures](appointment-dashboard-data.md) — estimate from appointment tariffs for demos; after Stripe on the VPS, count confirmed payments only.
-- [Offline patient persistence](offline-demo-mode.md) — patient profiles and appointments persist locally; dashboard reads Hive and booking never POSTs to the backend.
+- [Offline patient data and mock RBAC](offline-demo-mode.md) — keep local bookings offline, remove the Demo entry point, and limit email-only role mocks to development builds.
