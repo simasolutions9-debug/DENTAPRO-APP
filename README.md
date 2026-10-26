@@ -1,4 +1,5 @@
-# DENTAPRO — Fase 1: Fundación y seguridad
+# DENTAPRO-APP
+SaaS odontológico — Fase 1: Fundación y seguridad
 
 Backend SaaS odontológico con Django 5, Django REST Framework, JWT y PostgreSQL 16. Los directorios `mobile/` y `admin-web/` quedan como esqueletos vacíos para fases posteriores.
 
