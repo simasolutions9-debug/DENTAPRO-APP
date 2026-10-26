@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7kJzzfbM7NUzsG90Uf5X6"
+uri = "file://Dentapro_Final.zip"
+type = "unspecified"
+title = "Dentapro_Final.zip"
+description = "Archivo del proyecto con backend, mobile, docs y demás archivos del workspace. Se excluyeron dependencias, Git y cachés. codemagic.yaml no estaba presente en el proyecto."
+logical_id = "a3613bf7-77d5-4b22-a4f6-e91868dd46cc"
+content_hash = "sha256:39f554b85b39f40108b4f18857ba3ffac90b948c4497b30c2928ddc60973f422"
+size = 2334213
+mtime_ms = 1792974474304
+storage_uri = "gcs://replit-rams-assets-reed/rams/assets/repl:7dd1e0ec-c12f-47a1-a8b8-da2bf8edbad0/a3613bf7-77d5-4b22-a4f6-e91868dd46cc/5954badb-cf0f-4bdd-8f50-4e55a2070fa1"
+storage_version_token = "1792974480187658"
+content_type = "application/octet-stream"
