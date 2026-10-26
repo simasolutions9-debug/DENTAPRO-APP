@@ -339,25 +339,34 @@ void main() {
 
     await _loginAsMockPatient(tester);
 
-    final navigationBar = find.byType(NavigationBar);
+    final navigationBar = find.byType(NavigationBar, skipOffstage: false);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
 
     await tester.tap(find.text("Citas"));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key("appointments-route-screen")), findsOneWidget);
     expect(find.text("Mis citas"), findsOneWidget);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 1);
     expect(find.text("Control de rutina"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text("Perfil"));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key("user-profile-route-screen")), findsOneWidget);
     expect(find.text("Mi perfil"), findsOneWidget);
     expect(find.text("Cliente"), findsOneWidget);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 2);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text("Inicio"));
     await tester.pumpAndSettle();
     expect(find.text("Hola, Cliente"), findsOneWidget);
     expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
+    await tester.tap(find.byKey(const Key("dashboard-brand-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Cliente"), findsOneWidget);
   });
 
   testWidgets("patient profile edits are saved in app state", (tester) async {
@@ -479,6 +488,7 @@ void main() {
 
     await tester.tap(find.byTooltip("Buscar clínicas"));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key("search-screen")), findsOneWidget);
     expect(find.text("Clínica Sonrisa"), findsOneWidget);
 
     await tester.tap(find.text("Clínica Sonrisa"));

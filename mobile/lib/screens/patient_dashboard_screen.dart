@@ -6,8 +6,8 @@ import "../services/api_client.dart";
 import "../services/appointment_service.dart";
 import "../state/app_provider.dart";
 import "../widgets/dentapro_logo.dart";
-import "clinic_catalog_screen.dart";
 import "dental_odontogram_screen.dart";
+import "patient_navigation_screens.dart";
 import "patient_secondary_screens.dart";
 
 class PatientDashboardScreen extends StatefulWidget {
@@ -168,7 +168,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         child: NavigationBar(
           selectedIndex: _selectedTabIndex,
           onDestinationSelected: (index) =>
-              setState(() => _selectedTabIndex = index),
+              _onNavigationDestinationSelected(index, patient, appointments),
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -217,6 +217,33 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     );
   }
 
+  void _onNavigationDestinationSelected(
+    int index,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
+    if (index == 0) {
+      _resetToDashboard();
+      return;
+    }
+    setState(() => _selectedTabIndex = index);
+    final screen = index == 1
+        ? AppointmentsScreen(patient: patient, appointments: appointments)
+        : UserProfileScreen(
+            patient: patient,
+            appointments: appointments,
+            onLogout: widget.onLogout,
+          );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => screen),
+    );
+  }
+
+  void _resetToDashboard() {
+    setState(() => _selectedTabIndex = 0);
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Widget _buildHomeTab(
     BuildContext context,
     String? displayName,
@@ -230,6 +257,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
         children: [
           _DashboardHeader(
+            onHomeTap: _resetToDashboard,
             onSearchTap: () => _openClinicCatalog(context, patient),
             onNotificationsTap: () =>
                 _openNotifications(context, patient, appointments),
@@ -309,7 +337,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         AppProviderScope.maybeOf(context)?.isDemoMode ?? patient != null;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ClinicCatalogScreen(
+        builder: (_) => SearchScreen(
           clinicRepository: demoMode ? const DemoClinicRepository() : null,
           availabilityRepository:
               demoMode ? const DemoClinicAvailabilityRepository() : null,
@@ -370,7 +398,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   ) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => PatientNotificationsScreen(
+        builder: (_) => NotificationsScreen(
           patient: patient,
           appointments: appointments,
         ),
@@ -412,11 +440,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
 class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({
+    required this.onHomeTap,
     required this.onSearchTap,
     required this.onNotificationsTap,
     required this.onProfileTap,
   });
 
+  final VoidCallback onHomeTap;
   final VoidCallback onSearchTap;
   final VoidCallback onNotificationsTap;
   final VoidCallback onProfileTap;
@@ -425,7 +455,7 @@ class _DashboardHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const _MiniBrand(),
+        _MiniBrand(onTap: onHomeTap),
         const Spacer(),
         IconButton(
           key: const Key("dashboard-search-button"),
@@ -490,24 +520,38 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 class _MiniBrand extends StatelessWidget {
-  const _MiniBrand();
+  const _MiniBrand({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const DentaproMark(size: 25),
-        const SizedBox(width: 7),
-        Text(
-          "Dentapro",
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.navy,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
+    return Semantics(
+      button: true,
+      label: "Ir al inicio de Dentapro",
+      child: InkWell(
+        key: const Key("dashboard-brand-button"),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const DentaproMark(size: 25),
+              const SizedBox(width: 7),
+              Text(
+                "Dentapro",
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.navy,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
               ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
