@@ -383,6 +383,228 @@ class PaymentsScreen extends StatelessWidget {
   }
 }
 
+class PatientNotificationsScreen extends StatelessWidget {
+  const PatientNotificationsScreen({
+    super.key,
+    this.patient,
+    this.appointments = const [],
+  });
+
+  final DemoPatient? patient;
+  final List<AppointmentSummary> appointments;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextAppointment = appointments
+        .where(
+          (appointment) =>
+              appointment.status != "cancelled" &&
+              appointment.scheduledAt.isAfter(DateTime.now()),
+        )
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final next = nextAppointment.isEmpty ? null : nextAppointment.first;
+
+    return Scaffold(
+      key: const Key("notifications-screen"),
+      appBar: _backAppBar(context, "Notificaciones"),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(22, 10, 22, 30),
+        children: [
+          Text(
+            patient == null ? "Avisos importantes" : "Hola, ${patient!.name}",
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            "Aquí encontrarás novedades sobre tu atención.",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 18),
+          _NotificationCard(
+            icon: Icons.event_available_rounded,
+            title: next == null ? "Tu agenda está al día" : "Cita confirmada",
+            message: next == null
+                ? "Cuando agendes una cita, verás aquí sus avisos."
+                : "${next.clinicName} · ${MaterialLocalizations.of(context).formatFullDate(next.scheduledAt.toLocal())}",
+            tint: AppColors.teal,
+          ),
+          const SizedBox(height: 12),
+          const _NotificationCard(
+            icon: Icons.health_and_safety_outlined,
+            title: "Cuida tu sonrisa",
+            message: "Recuerda mantener tus controles odontológicos al día.",
+            tint: AppColors.blue,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class PatientSettingsScreen extends StatelessWidget {
+  const PatientSettingsScreen({
+    super.key,
+    this.patient,
+    this.appointments = const [],
+  });
+
+  final DemoPatient? patient;
+  final List<AppointmentSummary> appointments;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      key: const Key("patient-settings-screen"),
+      appBar: _backAppBar(context, "Configuración"),
+      body: PatientProfileTab(
+        patient: patient,
+        appointments: appointments,
+      ),
+    );
+  }
+}
+
+class AppointmentDetailScreen extends StatelessWidget {
+  const AppointmentDetailScreen({
+    super.key,
+    required this.appointment,
+    this.patient,
+  });
+
+  final AppointmentSummary appointment;
+  final DemoPatient? patient;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = appointment.scheduledAt.toLocal();
+    final localizations = MaterialLocalizations.of(context);
+    final time = localizations.formatTimeOfDay(TimeOfDay.fromDateTime(date));
+    final status = switch (appointment.status) {
+      "completed" => "Completada",
+      "confirmed" => "Confirmada",
+      "cancelled" => "Cancelada",
+      _ => "Agendada",
+    };
+
+    return Scaffold(
+      key: const Key("appointment-detail-screen"),
+      appBar: _backAppBar(context, "Detalle de la cita"),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(22, 10, 22, 30),
+        children: [
+          Text(
+            appointment.reason.trim().isEmpty
+                ? "Cita odontológica"
+                : appointment.reason,
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            patient == null
+                ? "Información de tu próxima cita."
+                : "Paciente: ${patient!.name}",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: _cardDecoration(),
+            child: Column(
+              children: [
+                _ProfileDetail(
+                  icon: Icons.local_hospital_outlined,
+                  label: "Clínica",
+                  value: appointment.clinicName,
+                ),
+                const SizedBox(height: 14),
+                _ProfileDetail(
+                  icon: Icons.calendar_today_outlined,
+                  label: "Fecha",
+                  value: localizations.formatFullDate(date),
+                ),
+                const SizedBox(height: 14),
+                _ProfileDetail(
+                  icon: Icons.access_time_rounded,
+                  label: "Hora",
+                  value: time,
+                ),
+                const SizedBox(height: 14),
+                _ProfileDetail(
+                  icon: Icons.timelapse_rounded,
+                  label: "Duración",
+                  value: "${appointment.durationMinutes} minutos",
+                ),
+                const SizedBox(height: 14),
+                _ProfileDetail(
+                  icon: Icons.verified_outlined,
+                  label: "Estado",
+                  value: status,
+                ),
+                if (appointment.estimatedFee != null) ...[
+                  const SizedBox(height: 14),
+                  _ProfileDetail(
+                    icon: Icons.payments_outlined,
+                    label: "Tarifa estimada",
+                    value: "\$${appointment.estimatedFee!.toStringAsFixed(2)}",
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationCard extends StatelessWidget {
+  const _NotificationCard({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.tint,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _cardDecoration(),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: tint.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: tint),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 5),
+                Text(message, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 AppBar _backAppBar(BuildContext context, String title) => AppBar(
       leading: IconButton(
         onPressed: () => Navigator.of(context).maybePop(),

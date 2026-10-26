@@ -130,17 +130,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  void _showComingSoon(BuildContext context, String section) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text("$section estará disponible próximamente."),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = AppProviderScope.maybeOf(context);
@@ -239,9 +228,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
         children: [
           _DashboardHeader(
             onSearchTap: () => _openClinicCatalog(context, patient),
-            onNotificationsTap: () {
-              _showComingSoon(context, "Las notificaciones");
-            },
+            onNotificationsTap: () =>
+                _openNotifications(context, patient, appointments),
+            onProfileTap: () => _openSettings(context, patient, appointments),
           ),
           const SizedBox(height: 25),
           Text(
@@ -263,13 +252,17 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             onRetry: _refreshAppointments,
             onTap: nextAppointment == null
                 ? null
-                : () => _openHistory(context, patient, appointments),
+                : () => _openAppointmentDetails(
+                      context,
+                      patient,
+                      nextAppointment,
+                    ),
           ),
           const SizedBox(height: 27),
           _SectionHeading(
             title: "Accesos rápidos",
             actionLabel: "Ver todo",
-            onAction: () => setState(() => _selectedTabIndex = 1),
+            onAction: () => _openHistory(context, patient, appointments),
           ),
           const SizedBox(height: 13),
           Row(
@@ -366,16 +359,63 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       ),
     );
   }
+
+  void _openNotifications(
+    BuildContext context,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PatientNotificationsScreen(
+          patient: patient,
+          appointments: appointments,
+        ),
+      ),
+    );
+  }
+
+  void _openSettings(
+    BuildContext context,
+    DemoPatient? patient,
+    List<AppointmentSummary> appointments,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PatientSettingsScreen(
+          patient: patient,
+          appointments: appointments,
+        ),
+      ),
+    );
+  }
+
+  void _openAppointmentDetails(
+    BuildContext context,
+    DemoPatient? patient,
+    AppointmentSummary appointment,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AppointmentDetailScreen(
+          patient: patient,
+          appointment: appointment,
+        ),
+      ),
+    );
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
   const _DashboardHeader({
     required this.onSearchTap,
     required this.onNotificationsTap,
+    required this.onProfileTap,
   });
 
   final VoidCallback onSearchTap;
   final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
@@ -384,6 +424,7 @@ class _DashboardHeader extends StatelessWidget {
         const _MiniBrand(),
         const Spacer(),
         IconButton(
+          key: const Key("dashboard-search-button"),
           onPressed: onSearchTap,
           tooltip: "Buscar clínicas",
           icon: const Icon(
@@ -393,6 +434,7 @@ class _DashboardHeader extends StatelessWidget {
           ),
         ),
         IconButton(
+          key: const Key("dashboard-notifications-button"),
           onPressed: onNotificationsTap,
           tooltip: "Notificaciones",
           icon: Stack(
@@ -419,18 +461,23 @@ class _DashboardHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7),
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: AppColors.teal.withValues(alpha: 0.14),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: const Icon(
-            Icons.person_rounded,
-            color: AppColors.navy,
-            size: 22,
+        IconButton(
+          key: const Key("dashboard-profile-button"),
+          onPressed: onProfileTap,
+          tooltip: "Abrir perfil y ajustes",
+          icon: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.teal.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(
+              Icons.person_rounded,
+              color: AppColors.navy,
+              size: 22,
+            ),
           ),
         ),
       ],
@@ -672,9 +719,11 @@ class _NextAppointmentCard extends StatelessWidget {
                                 ),
                           ),
                         ),
-                        const Icon(
-                          Icons.chevron_right_rounded,
+                        IconButton(
+                          tooltip: "Ver detalle de la cita",
+                          onPressed: onTap,
                           color: Colors.white,
+                          icon: const Icon(Icons.chevron_right_rounded),
                         ),
                       ],
                     ),
@@ -713,6 +762,7 @@ class _SectionHeading extends StatelessWidget {
           ),
         ),
         TextButton(
+          key: const Key("dashboard-see-all-button"),
           onPressed: onAction,
           style: TextButton.styleFrom(
             foregroundColor: AppColors.teal,

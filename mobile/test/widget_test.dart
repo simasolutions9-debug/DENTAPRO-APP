@@ -309,6 +309,50 @@ void main() {
     expect(find.text("Hola, Paciente Demo"), findsOneWidget);
   });
 
+  testWidgets("dashboard header, appointment, and see-all push their screens", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key("dashboard-notifications-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Notificaciones"), findsOneWidget);
+    expect(find.text("Cita confirmada"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key("dashboard-profile-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Configuración"), findsOneWidget);
+    expect(find.byKey(const Key("edit-profile-button")), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip("Ver detalle de la cita"));
+    await tester.pumpAndSettle();
+    expect(find.text("Detalle de la cita"), findsOneWidget);
+    expect(find.text("Clínica Sonrisa"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(
+      find.byKey(const Key("dashboard-see-all-button")),
+    );
+    await tester.tap(find.byKey(const Key("dashboard-see-all-button")));
+    await tester.pumpAndSettle();
+    expect(find.text("Historial de Paciente Demo"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+  });
+
   testWidgets("demo clinic booking stays on injected local data",
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
