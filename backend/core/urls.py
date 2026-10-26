@@ -2,7 +2,7 @@ from django.urls import path
 
 from core.branding import TenantBrandingView
 from core.clinics import ClinicDirectoryView
-from core.scheduling import AppointmentCreateView, ClinicAvailabilityView
+from core.scheduling import AppointmentListCreateView, ClinicAvailabilityView
 
 urlpatterns = [
     path("clinics/", ClinicDirectoryView.as_view(), name="clinic-directory"),
@@ -13,8 +13,8 @@ urlpatterns = [
     ),
     path(
         "appointments/",
-        AppointmentCreateView.as_view(),
-        name="appointment-create",
+        AppointmentListCreateView.as_view(),
+        name="appointments",
     ),
     path("tenant/branding/", TenantBrandingView.as_view(), name="tenant-branding"),
 ]

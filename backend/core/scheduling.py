@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
@@ -35,6 +36,11 @@ def _slot_payload(slot):
         "id": str(slot.id),
         "starts_at": timezone.localtime(slot.starts_at).isoformat(),
         "duration_minutes": slot.duration_minutes,
+        "estimated_fee": (
+            format(slot.estimated_fee, ".2f")
+            if slot.estimated_fee is not None
+            else None
+        ),
     }
 
 
@@ -121,6 +127,26 @@ class ClinicAvailabilityView(APIView):
                 {"duration_minutes": "La duración debe estar entre 15 y 240 minutos."}
             )
 
+        fee_value = request.data.get("estimated_fee")
+        if fee_value in (None, ""):
+            estimated_fee = None
+        else:
+            try:
+                estimated_fee = Decimal(str(fee_value))
+            except (InvalidOperation, TypeError, ValueError) as exc:
+                raise ValidationError(
+                    {"estimated_fee": "Envía una tarifa válida en dólares."}
+                ) from exc
+            if (
+                not estimated_fee.is_finite()
+                or estimated_fee < Decimal("0.00")
+                or estimated_fee > Decimal("999999.99")
+                or estimated_fee.as_tuple().exponent < -2
+            ):
+                raise ValidationError(
+                    {"estimated_fee": "La tarifa debe estar entre $0.00 y $999999.99."}
+                )
+
         slot_end = starts_at + timedelta(minutes=duration)
         try:
             with transaction.atomic():
@@ -146,6 +172,7 @@ class ClinicAvailabilityView(APIView):
                     tenant=clinic.tenant,
                     starts_at=starts_at,
                     duration_minutes=duration,
+                    estimated_fee=estimated_fee,
                     is_published=True,
                 )
         except IntegrityError:
@@ -157,8 +184,144 @@ class ClinicAvailabilityView(APIView):
         return Response(_slot_payload(slot), status=status.HTTP_201_CREATED)
 
 
-class AppointmentCreateView(APIView):
+def _appointment_payload(appointment, clinic=None):
+    slot = appointment.availability_slot
+    estimated_fee = slot.estimated_fee if slot is not None else None
+    patient_name = str(appointment.patient)
+    clinic_name = (
+        clinic.clinic_name
+        if clinic is not None
+        else appointment.tenant.name
+    )
+    return {
+        "id": str(appointment.id),
+        "patient_id": str(appointment.patient_id),
+        "patient_name": patient_name,
+        "clinic_slug": clinic.slug if clinic is not None else "",
+        "clinic_name": clinic_name,
+        "scheduled_at": timezone.localtime(appointment.scheduled_at).isoformat(),
+        "duration_minutes": appointment.duration_minutes,
+        "status": appointment.status,
+        "reason": appointment.reason,
+        "estimated_fee": (
+            format(estimated_fee, ".2f") if estimated_fee is not None else None
+        ),
+    }
+
+
+class AppointmentListCreateView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        role = getattr(request.user, "role", "")
+        if role == "paciente":
+            return self._get_patient_appointments(request)
+        if role == "dentista":
+            return self._get_clinic_appointments(request)
+        raise PermissionDenied("Este usuario no puede consultar estas citas.")
+
+    def _get_patient_appointments(self, request):
+        token_patient_id = request.auth.get("patient_id") if request.auth else None
+        if not token_patient_id:
+            raise PermissionDenied("La sesión no contiene un perfil de paciente.")
+        patient = Paciente.objects.filter(
+            pk=token_patient_id,
+            tenant_id=request.user.tenant_id,
+            email__iexact=request.user.email,
+        ).first()
+        if patient is None:
+            raise PermissionDenied("La cuenta no tiene un perfil de paciente válido.")
+
+        now = timezone.now()
+        appointments = []
+        with transaction.atomic():
+            tenant_ids = list(Tenant.objects.values_list("id", flat=True))
+            for tenant_id in tenant_ids:
+                _set_tenant_context(tenant_id)
+                clinic = ClinicBranding.objects.filter(
+                    tenant_id=tenant_id,
+                ).first()
+                tenant_appointments = Cita.objects.filter(
+                    tenant_id=tenant_id,
+                    patient_id=patient.id,
+                    status__in=(Cita.Status.SCHEDULED, Cita.Status.CONFIRMED),
+                    scheduled_at__gte=now,
+                ).select_related(
+                    "patient",
+                    "tenant",
+                    "availability_slot",
+                )
+                appointments.extend(
+                    (appointment, clinic) for appointment in tenant_appointments
+                )
+            _set_tenant_context(request.user.tenant_id)
+
+        appointments.sort(key=lambda item: item[0].scheduled_at)
+        return Response(
+            [
+                _appointment_payload(appointment, clinic)
+                for appointment, clinic in appointments[:50]
+            ]
+        )
+
+    def _get_clinic_appointments(self, request):
+        start_date_value = request.query_params.get("from")
+        end_date_value = request.query_params.get("to")
+        single_date_value = request.query_params.get("date")
+        if start_date_value or end_date_value:
+            if not start_date_value or not end_date_value:
+                raise ValidationError(
+                    {"date": "Envía tanto 'from' como 'to' para consultar un rango."}
+                )
+            start_date = parse_date(start_date_value)
+            end_date = parse_date(end_date_value)
+        else:
+            selected_date = (
+                parse_date(single_date_value)
+                if single_date_value
+                else timezone.localdate()
+            )
+            start_date = selected_date
+            end_date = selected_date
+
+        if start_date is None or end_date is None:
+            raise ValidationError(
+                {"date": "Envía fechas válidas con formato YYYY-MM-DD."}
+            )
+        if end_date < start_date or (end_date - start_date).days > 30:
+            raise ValidationError(
+                {"date": "El rango debe ser válido y no superar 31 días."}
+            )
+
+        current_tenant_id = request.user.tenant_id
+        start_at = timezone.make_aware(datetime.combine(start_date, time.min))
+        end_at = timezone.make_aware(
+            datetime.combine(end_date + timedelta(days=1), time.min)
+        )
+        with transaction.atomic():
+            _set_tenant_context(current_tenant_id)
+            clinic = ClinicBranding.objects.filter(
+                tenant_id=current_tenant_id,
+            ).first()
+            appointments = (
+                Cita.objects.filter(
+                    tenant_id=current_tenant_id,
+                    scheduled_at__gte=start_at,
+                    scheduled_at__lt=end_at,
+                    status__in=(
+                        Cita.Status.SCHEDULED,
+                        Cita.Status.CONFIRMED,
+                        Cita.Status.COMPLETED,
+                    ),
+                )
+                .select_related("patient", "tenant", "availability_slot")
+                .order_by("scheduled_at")
+            )
+            payload = [
+                _appointment_payload(appointment, clinic)
+                for appointment in appointments
+            ]
+        return Response(payload)
 
     def post(self, request):
         if getattr(request.user, "role", "") != "paciente":

@@ -2,72 +2,122 @@ import "package:flutter/material.dart";
 
 import "../app_theme.dart";
 import "../services/api_client.dart";
+import "../services/appointment_service.dart";
 import "manage_schedule_screen.dart";
 
 class DentistDashboardScreen extends StatefulWidget {
-  const DentistDashboardScreen({super.key});
+  const DentistDashboardScreen({
+    super.key,
+    this.appointmentsRepository,
+  });
+
+  final AppointmentDashboardRepository? appointmentsRepository;
 
   @override
   State<DentistDashboardScreen> createState() => _DentistDashboardScreenState();
 }
 
 class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
-  static const _weeklyAppointments = [
-    _WeekdayAppointments("Lun", 4),
-    _WeekdayAppointments("Mar", 6),
-    _WeekdayAppointments("Mié", 3),
-    _WeekdayAppointments("Jue", 8),
-    _WeekdayAppointments("Vie", 5),
-    _WeekdayAppointments("Sáb", 2),
-    _WeekdayAppointments("Dom", 1),
+  static const _weekdayLabels = [
+    "Lun",
+    "Mar",
+    "Mié",
+    "Jue",
+    "Vie",
+    "Sáb",
+    "Dom"
   ];
 
-  static const _appointments = [
-    _TodayAppointment(
-      time: "09:00",
-      patient: "María Fernanda López",
-      treatment: "Limpieza dental",
-    ),
-    _TodayAppointment(
-      time: "10:30",
-      patient: "Carlos Andrade",
-      treatment: "Revisión general",
-    ),
-    _TodayAppointment(
-      time: "12:00",
-      patient: "Sofía Reyes",
-      treatment: "Restauración con resina",
-    ),
-    _TodayAppointment(
-      time: "14:30",
-      patient: "Andrés Viteri",
-      treatment: "Control de ortodoncia",
-    ),
-  ];
+  late final AppointmentDashboardRepository _appointmentsRepository =
+      widget.appointmentsRepository ?? AppointmentService();
+  List<AppointmentSummary> _weekAppointments = const [];
+  bool _isLoading = true;
+  String? _error;
 
-  final Map<int, _AppointmentStatus> _appointmentStatuses = {
-    0: _AppointmentStatus.inProgress,
-  };
+  List<AppointmentSummary> get _todayAppointments => _weekAppointments
+      .where((appointment) =>
+          DateUtils.isSameDay(appointment.scheduledAt, DateTime.now()))
+      .toList(growable: false);
 
-  int get _weeklyTotal => _weeklyAppointments.fold(
+  double get _todayEstimatedIncome => _todayAppointments
+      .where((appointment) => appointment.status != "cancelled")
+      .fold(
         0,
-        (total, entry) => total + entry.count,
+        (sum, appointment) => sum + (appointment.estimatedFee ?? 0),
       );
 
-  void _advanceAppointment(int index) {
-    setState(() {
-      final current =
-          _appointmentStatuses[index] ?? _AppointmentStatus.scheduled;
-      _appointmentStatuses[index] = switch (current) {
-        _AppointmentStatus.scheduled => _AppointmentStatus.inProgress,
-        _AppointmentStatus.inProgress => _AppointmentStatus.completed,
-        _AppointmentStatus.completed => _AppointmentStatus.completed,
-      };
+  int get _todayMissingTariffCount => _todayAppointments
+      .where((appointment) => appointment.estimatedFee == null)
+      .length;
+
+  List<_WeekdayAppointments> get _weeklyAppointments {
+    final today = DateUtils.dateOnly(DateTime.now());
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    return List.generate(7, (index) {
+      final day = weekStart.add(Duration(days: index));
+      final count = _weekAppointments
+          .where((appointment) =>
+              DateUtils.isSameDay(appointment.scheduledAt, day))
+          .length;
+      return _WeekdayAppointments(_weekdayLabels[index], count);
     });
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    final today = DateUtils.dateOnly(DateTime.now());
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    try {
+      final appointments =
+          await _appointmentsRepository.fetchClinicAppointments(
+        from: weekStart,
+        to: weekEnd,
+      );
+      if (!mounted) return;
+      setState(() {
+        _weekAppointments = appointments;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _error = switch (error) {
+          ApiException(:final message) => message,
+          FormatException(:final message) => message.toString(),
+          _ => "No se pudieron cargar las citas de la clínica.",
+        };
+      });
+    }
+  }
+
+  String get _todayLabel {
+    const weekdays = [
+      "Lunes",
+      "Martes",
+      "Miércoles",
+      "Jueves",
+      "Viernes",
+      "Sábado",
+      "Domingo",
+    ];
+    final today = DateTime.now();
+    return "${weekdays[today.weekday - 1]} · Agenda de hoy";
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final todayAppointments = _todayAppointments;
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -85,26 +135,12 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 19),
-            child: ClipOval(
-              child: Image.asset(
-                "assets/images/dentapro-doctor-profile.jpg",
-                width: 40,
-                height: 40,
-                fit: BoxFit.cover,
-                semanticLabel: "Foto de la Dra. Valentina Ortiz",
-                errorBuilder: (context, error, stackTrace) =>
-                    const CircleAvatar(
-                  radius: 20,
-                  backgroundColor: AppColors.teal,
-                  child: Text(
-                    "VO",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+            child: const CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.teal,
+              child: Icon(
+                Icons.person_rounded,
+                color: Colors.white,
               ),
             ),
           ),
@@ -119,7 +155,13 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
           children: [
             _DoctorWelcome(),
             const SizedBox(height: 18),
-            const _DailyIncomeCard(),
+            _DailyIncomeCard(
+              estimatedAmount: _todayEstimatedIncome,
+              missingTariffCount: _todayMissingTariffCount,
+              isLoading: _isLoading,
+              error: _error,
+              onRetry: _loadDashboard,
+            ),
             const SizedBox(height: 20),
             _SectionTitle(
               title: "Actividad semanal",
@@ -128,7 +170,9 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
             const SizedBox(height: 10),
             _WeeklyAppointmentsCard(
               appointments: _weeklyAppointments,
-              total: _weeklyTotal,
+              total: _weekAppointments.length,
+              isLoading: _isLoading,
+              error: _error,
             ),
             const SizedBox(height: 12),
             _ManageScheduleCard(
@@ -159,7 +203,7 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    "${_appointments.length} citas",
+                    "${todayAppointments.length} citas",
                     style: const TextStyle(
                       color: AppColors.navy,
                       fontSize: 10,
@@ -171,28 +215,32 @@ class _DentistDashboardScreenState extends State<DentistDashboardScreen> {
             ),
             const SizedBox(height: 5),
             Text(
-              "Lunes · Agenda de hoy",
+              _todayLabel,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
-            for (var index = 0; index < _appointments.length; index++) ...[
-              _AppointmentCard(
-                key: ValueKey("appointment-card-$index"),
-                appointment: _appointments[index],
-                status:
-                    _appointmentStatuses[index] ?? _AppointmentStatus.scheduled,
-                onAction: () => _advanceAppointment(index),
-              ),
-              const SizedBox(height: 9),
-            ],
-            const SizedBox(height: 5),
-            Text(
-              "Agenda e ingresos de ejemplo para esta vista previa.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontSize: 10,
+            if (_isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 28),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    key: Key("dentist-appointments-loading"),
+                    color: AppColors.teal,
                   ),
-            ),
+                ),
+              )
+            else if (_error != null)
+              _DashboardLoadError(
+                message: _error!,
+                onRetry: _loadDashboard,
+              )
+            else if (todayAppointments.isEmpty)
+              const _NoPatientsTodayCard()
+            else
+              for (final appointment in todayAppointments) ...[
+                _AppointmentCard(appointment: appointment),
+                const SizedBox(height: 9),
+              ],
           ],
         ),
       ),
@@ -283,14 +331,14 @@ class _DoctorWelcome extends StatelessWidget {
               ),
               const SizedBox(height: 3),
               Text(
-                "Dra. Valentina Ortiz",
+                "Panel de la clínica",
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontSize: 22,
                     ),
               ),
               const SizedBox(height: 4),
               Text(
-                "Odontología general · Clínica Sonríe",
+                "Agenda y métricas de tu clínica",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontSize: 11,
                     ),
@@ -321,7 +369,19 @@ class _DoctorWelcome extends StatelessWidget {
 }
 
 class _DailyIncomeCard extends StatelessWidget {
-  const _DailyIncomeCard();
+  const _DailyIncomeCard({
+    required this.estimatedAmount,
+    required this.missingTariffCount,
+    required this.isLoading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final double estimatedAmount;
+  final int missingTariffCount;
+  final bool isLoading;
+  final String? error;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -389,58 +449,95 @@ class _DailyIncomeCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Text(
-                    "INGRESOS DEL DÍA",
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.82),
-                          letterSpacing: 1,
-                          fontSize: 10,
-                        ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(20),
+                  Expanded(
+                    child: Text(
+                      "INGRESOS PREVISTOS HOY",
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.82),
+                            letterSpacing: 0.8,
+                            fontSize: 9,
+                          ),
                     ),
-                    child: const Text(
-                      "HOY",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.7,
+                  ),
+                  if (error != null)
+                    IconButton(
+                      tooltip: "Reintentar",
+                      onPressed: onRetry,
+                      color: Colors.white,
+                      icon: const Icon(Icons.refresh_rounded, size: 19),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        "ESTIMADO",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.7,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 19),
-              Text(
-                "\$350.00",
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: Colors.white,
-                      fontSize: 34,
-                      letterSpacing: -0.8,
+              if (isLoading)
+                const SizedBox(
+                  height: 41,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        key: Key("estimated-income-loading"),
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
                     ),
-              ),
+                  ),
+                )
+              else
+                Text(
+                  error == null
+                      ? "\$${estimatedAmount.toStringAsFixed(2)}"
+                      : "No disponible",
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                        color: Colors.white,
+                        fontSize: error == null ? 34 : 21,
+                        letterSpacing: -0.8,
+                      ),
+                ),
               const SizedBox(height: 7),
               Row(
                 children: [
                   const Icon(
-                    Icons.trending_up_rounded,
+                    Icons.info_outline_rounded,
                     color: Color(0xFF7DE3CF),
                     size: 17,
                   ),
                   const SizedBox(width: 5),
-                  Text(
-                    "Ingresos registrados hoy",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.84),
-                          fontSize: 11,
-                        ),
+                  Expanded(
+                    child: Text(
+                      missingTariffCount > 0
+                          ? "Estimación parcial: faltan tarifas en "
+                              "$missingTariffCount citas; no son pagos cobrados."
+                          : "Estimado con tarifas de citas; no son pagos cobrados.",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.84),
+                            fontSize: 10,
+                          ),
+                    ),
                   ),
                 ],
               ),
@@ -487,15 +584,21 @@ class _WeeklyAppointmentsCard extends StatelessWidget {
   const _WeeklyAppointmentsCard({
     required this.appointments,
     required this.total,
+    required this.isLoading,
+    required this.error,
   });
 
   final List<_WeekdayAppointments> appointments;
   final int total;
-
-  static const _maxCount = 8;
+  final bool isLoading;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
+    final maxCount = appointments.fold<int>(
+      1,
+      (maximum, day) => day.count > maximum ? day.count : maximum,
+    );
     return Container(
       key: const Key("weekly-appointments-chart"),
       padding: const EdgeInsets.fromLTRB(16, 15, 16, 13),
@@ -533,21 +636,42 @@ class _WeeklyAppointmentsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            height: 120,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final day in appointments)
-                  Expanded(
-                    child: _WeekdayBar(
-                      day: day,
-                      maxCount: _maxCount,
+          if (isLoading)
+            const SizedBox(
+              height: 120,
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.teal,
+                  strokeWidth: 2.5,
+                ),
+              ),
+            )
+          else if (error != null)
+            SizedBox(
+              height: 120,
+              child: Center(
+                child: Text(
+                  "No se pudieron cargar las citas.",
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 120,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final day in appointments)
+                    Expanded(
+                      child: _WeekdayBar(
+                        day: day,
+                        maxCount: maxCount,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -616,30 +740,23 @@ class _WeekdayBar extends StatelessWidget {
 }
 
 class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    super.key,
-    required this.appointment,
-    required this.status,
-    required this.onAction,
-  });
+  const _AppointmentCard({required this.appointment});
 
-  final _TodayAppointment appointment;
-  final _AppointmentStatus status;
-  final VoidCallback onAction;
+  final AppointmentSummary appointment;
 
   @override
   Widget build(BuildContext context) {
-    final actionLabel = switch (status) {
-      _AppointmentStatus.scheduled => "Iniciar",
-      _AppointmentStatus.inProgress => "Completar",
-      _AppointmentStatus.completed => "Completada",
+    final localTime = appointment.scheduledAt.toLocal();
+    final statusLabel = switch (appointment.status) {
+      "confirmed" => "Confirmada",
+      "completed" => "Completada",
+      _ => "Programada",
     };
-    final actionColor = status == _AppointmentStatus.inProgress
-        ? AppColors.blue
-        : AppColors.teal;
+    final statusColor =
+        appointment.status == "completed" ? AppColors.blue : AppColors.teal;
 
     return Container(
-      key: ValueKey("appointment-card-${appointment.patient}"),
+      key: ValueKey("appointment-card-${appointment.id}"),
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -672,7 +789,8 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  appointment.time,
+                  "${localTime.hour.toString().padLeft(2, "0")}:"
+                  "${localTime.minute.toString().padLeft(2, "0")}",
                   style: const TextStyle(
                     color: AppColors.navy,
                     fontSize: 10,
@@ -688,7 +806,7 @@ class _AppointmentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  appointment.patient,
+                  appointment.patientName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -697,56 +815,31 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  appointment.treatment,
+                  appointment.reason.trim().isEmpty
+                      ? "Cita odontológica"
+                      : appointment.reason,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontSize: 10,
                       ),
                 ),
-                if (status != _AppointmentStatus.scheduled) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    status == _AppointmentStatus.inProgress
-                        ? "En consulta"
-                        : "Atención completada",
-                    style: TextStyle(
-                      color: status == _AppointmentStatus.inProgress
-                          ? AppColors.blue
-                          : AppColors.teal,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
-          const SizedBox(width: 7),
-          SizedBox(
-            width: status == _AppointmentStatus.completed ? 80 : 84,
-            height: 37,
-            child: ElevatedButton(
-              key: ValueKey("appointment-action-${appointment.patient}"),
-              onPressed:
-                  status == _AppointmentStatus.completed ? null : onAction,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: actionColor,
-                disabledBackgroundColor: AppColors.teal.withValues(alpha: 0.12),
-                disabledForegroundColor: AppColors.teal,
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(actionLabel),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              statusLabel,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -756,23 +849,86 @@ class _AppointmentCard extends StatelessWidget {
   }
 }
 
-enum _AppointmentStatus { scheduled, inProgress, completed }
+class _NoPatientsTodayCard extends StatelessWidget {
+  const _NoPatientsTodayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.event_busy_rounded, color: AppColors.muted),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "No hay pacientes con cita hoy.",
+              key: Key("no-patients-today"),
+              style: TextStyle(
+                color: AppColors.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardLoadError extends StatelessWidget {
+  const _DashboardLoadError({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF4F2),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_off_rounded, color: Color(0xFFB42318)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Color(0xFFB42318),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: "Reintentar",
+            onPressed: onRetry,
+            icon: const Icon(
+              Icons.refresh_rounded,
+              color: Color(0xFFB42318),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _WeekdayAppointments {
   const _WeekdayAppointments(this.label, this.count);
 
   final String label;
   final int count;
-}
-
-class _TodayAppointment {
-  const _TodayAppointment({
-    required this.time,
-    required this.patient,
-    required this.treatment,
-  });
-
-  final String time;
-  final String patient;
-  final String treatment;
 }

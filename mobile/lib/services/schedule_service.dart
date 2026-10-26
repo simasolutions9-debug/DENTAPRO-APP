@@ -8,6 +8,7 @@ abstract interface class SchedulePublisher {
     required String clinicSlug,
     required DateTime startsAt,
     required int durationMinutes,
+    required String estimatedFee,
   });
 }
 
@@ -26,6 +27,7 @@ class ScheduleService implements SchedulePublisher {
     required String clinicSlug,
     required DateTime startsAt,
     required int durationMinutes,
+    required String estimatedFee,
   }) async {
     final accessToken = await _tokenStore.readAccessToken();
     if (accessToken == null || accessToken.isEmpty) {
@@ -40,6 +42,7 @@ class ScheduleService implements SchedulePublisher {
         data: {
           "starts_at": startsAt.toUtc().toIso8601String(),
           "duration_minutes": durationMinutes,
+          "estimated_fee": estimatedFee,
         },
         options: Options(
           headers: {"Authorization": "Bearer $accessToken"},

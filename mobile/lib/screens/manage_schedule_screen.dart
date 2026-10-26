@@ -51,6 +51,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   late final SchedulePublisher _schedulePublisher =
       widget.schedulePublisher ?? ScheduleService();
   late final DateTime _today = DateUtils.dateOnly(DateTime.now());
+  final TextEditingController _estimatedFeeController = TextEditingController();
   late DateTime _weekStart = _mondayOf(_today);
   late DateTime _selectedDate = _today;
 
@@ -85,6 +86,12 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
     final starts = _startTime.hour * 60 + _startTime.minute;
     final ends = _endTime.hour * 60 + _endTime.minute;
     return ends - starts;
+  }
+
+  @override
+  void dispose() {
+    _estimatedFeeController.dispose();
+    super.dispose();
   }
 
   @override
@@ -196,9 +203,17 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
   Future<void> _publishSchedule() async {
     if (!_clinicIsConfigured || _isSaving) return;
     final duration = _durationMinutes;
+    final estimatedFee =
+        _estimatedFeeController.text.trim().replaceAll(",", ".");
     if (duration < 15 || duration > 240) {
       setState(() {
         _formError = "El bloque debe durar entre 15 minutos y 4 horas.";
+      });
+      return;
+    }
+    if (!RegExp(r"^\d{1,6}(?:\.\d{1,2})?$").hasMatch(estimatedFee)) {
+      setState(() {
+        _formError = "Ingresa una tarifa válida con máximo 2 decimales.";
       });
       return;
     }
@@ -233,6 +248,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
         clinicSlug: widget.clinicSlug,
         startsAt: startsAt,
         durationMinutes: duration,
+        estimatedFee: estimatedFee,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -299,6 +315,7 @@ class _ManageScheduleScreenState extends State<ManageScheduleScreen> {
               startTime: _timeOfDayLabel(_startTime),
               endTime: _timeOfDayLabel(_endTime),
               durationMinutes: _durationMinutes,
+              estimatedFeeController: _estimatedFeeController,
               isSaving: _isSaving,
               error: _formError,
               clinicIsConfigured: _clinicIsConfigured,
@@ -377,6 +394,7 @@ class _AddScheduleCard extends StatelessWidget {
     required this.startTime,
     required this.endTime,
     required this.durationMinutes,
+    required this.estimatedFeeController,
     required this.isSaving,
     required this.error,
     required this.clinicIsConfigured,
@@ -390,6 +408,7 @@ class _AddScheduleCard extends StatelessWidget {
   final String startTime;
   final String endTime;
   final int durationMinutes;
+  final TextEditingController estimatedFeeController;
   final bool isSaving;
   final String? error;
   final bool clinicIsConfigured;
@@ -467,6 +486,17 @@ class _AddScheduleCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            key: const Key("schedule-estimated-fee-field"),
+            controller: estimatedFeeController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: "Tarifa estimada por cita",
+              prefixText: "\$ ",
+              suffixText: "USD",
+            ),
           ),
           if (durationMinutes > 0) ...[
             const SizedBox(height: 8),
@@ -641,7 +671,8 @@ class _DayScheduleCard extends StatelessWidget {
                         for (final slot in slots)
                           _SlotChip(
                             label: "${formatTime(slot.startsAt.toLocal())}–"
-                                "${formatTime(slot.startsAt.toLocal().add(Duration(minutes: slot.durationMinutes)))}",
+                                "${formatTime(slot.startsAt.toLocal().add(Duration(minutes: slot.durationMinutes)))}"
+                                " · ${slot.estimatedFee == null ? "Tarifa pendiente" : "\$${slot.estimatedFee!.toStringAsFixed(2)}"}",
                           ),
                       ],
                     ),

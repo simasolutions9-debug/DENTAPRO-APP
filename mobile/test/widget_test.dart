@@ -97,13 +97,72 @@ class _FakeAppointmentRepository implements AppointmentRepository {
   }) async {}
 }
 
+class _FakeAppointmentDashboardRepository
+    implements AppointmentDashboardRepository {
+  _FakeAppointmentDashboardRepository({
+    this.upcoming = const [],
+    this.clinicAppointments = const [],
+  });
+
+  final List<AppointmentSummary> upcoming;
+  final List<AppointmentSummary> clinicAppointments;
+  @override
+  Future<List<AppointmentSummary>> fetchUpcomingAppointments() async {
+    return upcoming;
+  }
+
+  @override
+  Future<List<AppointmentSummary>> fetchClinicAppointments({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    return clinicAppointments
+        .where(
+          (appointment) =>
+              !appointment.scheduledAt.isBefore(from) &&
+              appointment.scheduledAt.isBefore(to.add(const Duration(days: 1))),
+        )
+        .toList(growable: false);
+  }
+}
+
+AppointmentSummary _appointment({
+  required String id,
+  required String patientName,
+  required DateTime scheduledAt,
+  String clinicName = "Clínica Norte",
+  double? estimatedFee,
+  String status = "scheduled",
+  String reason = "",
+}) {
+  return AppointmentSummary(
+    id: id,
+    patientId: "patient-$id",
+    patientName: patientName,
+    clinicSlug: "clinica-norte",
+    clinicName: clinicName,
+    scheduledAt: scheduledAt,
+    durationMinutes: 30,
+    status: status,
+    reason: reason,
+    estimatedFee: estimatedFee,
+  );
+}
+
 Future<void> _loginAs(
   WidgetTester tester, {
   String role = "paciente",
   _FakeAuthRepository? repository,
+  AppointmentDashboardRepository? appointmentsRepository,
 }) async {
   final auth = repository ?? _FakeAuthRepository(role: role);
-  await tester.pumpWidget(DentaproApp(authRepository: auth));
+  await tester.pumpWidget(
+    DentaproApp(
+      authRepository: auth,
+      appointmentsRepository:
+          appointmentsRepository ?? _FakeAppointmentDashboardRepository(),
+    ),
+  );
   await tester.enterText(
     find.byKey(const Key("login-email-field")),
     "persona@example.com",
@@ -201,7 +260,7 @@ void main() {
     expect(find.text("Cuenta creada. Inicia sesión."), findsOneWidget);
   });
 
-  testWidgets("dentist dashboard retains local appointment actions", (
+  testWidgets("dentist dashboard renders clinic appointments and estimates", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -209,43 +268,85 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester, role: "dentista");
+    final today = DateUtils.dateOnly(DateTime.now());
+    final appointments = [
+      _appointment(
+        id: "a1",
+        patientName: "María Fernanda López",
+        scheduledAt: DateTime(today.year, today.month, today.day, 9),
+        estimatedFee: 100,
+      ),
+      _appointment(
+        id: "a2",
+        patientName: "Carlos Andrade",
+        scheduledAt: DateTime(today.year, today.month, today.day, 10, 30),
+        estimatedFee: 100,
+        status: "confirmed",
+      ),
+      _appointment(
+        id: "a3",
+        patientName: "Sofía Reyes",
+        scheduledAt: DateTime(today.year, today.month, today.day, 12),
+        estimatedFee: 75,
+        status: "completed",
+      ),
+      _appointment(
+        id: "a4",
+        patientName: "Andrés Viteri",
+        scheduledAt: DateTime(today.year, today.month, today.day, 14, 30),
+        estimatedFee: 75,
+      ),
+    ];
+    await _loginAs(
+      tester,
+      role: "dentista",
+      appointmentsRepository: _FakeAppointmentDashboardRepository(
+        clinicAppointments: appointments,
+      ),
+    );
 
     expect(find.text("Panel odontológico"), findsOneWidget);
-    expect(find.text("Dra. Valentina Ortiz"), findsOneWidget);
-    expect(find.text("INGRESOS DEL DÍA"), findsOneWidget);
+    expect(find.text("INGRESOS PREVISTOS HOY"), findsOneWidget);
     expect(find.text("\$350.00"), findsOneWidget);
     expect(find.byKey(const Key("weekly-appointments-chart")), findsOneWidget);
-    expect(find.text("29 esta semana"), findsOneWidget);
+    expect(find.text("4 esta semana"), findsOneWidget);
     expect(find.text("Pacientes de hoy"), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text("María Fernanda López"),
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text("María Fernanda López"), findsOneWidget);
     expect(find.text("09:00"), findsOneWidget);
-    expect(find.text("Iniciar"), findsWidgets);
-    expect(find.text("Completar"), findsOneWidget);
-
-    final mariaAction =
-        find.byKey(const ValueKey("appointment-action-María Fernanda López"));
-    await tester.tap(mariaAction);
-    await tester.pumpAndSettle();
-
-    final mariaCard =
-        find.byKey(const ValueKey("appointment-card-María Fernanda López"));
-    expect(
-      find.descendant(of: mariaCard, matching: find.text("Completada")),
-      findsOneWidget,
-    );
+    expect(find.text("Confirmada"), findsOneWidget);
+    expect(find.text("Completada"), findsOneWidget);
   });
 
-  testWidgets("patient entry opens the sample dashboard", (tester) async {
+  testWidgets("patient dashboard renders the next appointment from API data", (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester);
+    final nextAppointment = _appointment(
+      id: "next",
+      patientName: "Paciente",
+      scheduledAt: DateTime.now().add(const Duration(days: 3)),
+      clinicName: "Clínica Norte",
+      reason: "Limpieza y revisión",
+    );
+    await _loginAs(
+      tester,
+      appointmentsRepository: _FakeAppointmentDashboardRepository(
+        upcoming: [nextAppointment],
+      ),
+    );
 
-    expect(find.text("Hola, Camila"), findsOneWidget);
+    expect(find.text("Hola"), findsOneWidget);
     expect(find.text("Limpieza y revisión"), findsOneWidget);
+    expect(find.text("Clínica Norte"), findsOneWidget);
     expect(find.text("Accesos rápidos"), findsOneWidget);
   });
 

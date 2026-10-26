@@ -51,16 +51,19 @@ class ClinicSlot {
     required this.id,
     required this.startsAt,
     required this.durationMinutes,
+    this.estimatedFee,
   });
 
   final String id;
   final DateTime startsAt;
   final int durationMinutes;
+  final double? estimatedFee;
 
   factory ClinicSlot.fromJson(Map<String, dynamic> json) {
     final id = json["id"];
     final startsAtValue = json["starts_at"];
     final durationMinutes = json["duration_minutes"];
+    final fee = _parseMoney(json["estimated_fee"]);
     final startsAt =
         startsAtValue is String ? DateTime.tryParse(startsAtValue) : null;
     if (id is! String ||
@@ -75,7 +78,19 @@ class ClinicSlot {
       id: id,
       startsAt: startsAt.toLocal(),
       durationMinutes: durationMinutes,
+      estimatedFee: fee,
     );
+  }
+
+  static double? _parseMoney(Object? value) {
+    if (value == null) return null;
+    final amount = value is num ? value.toDouble() : double.tryParse("$value");
+    if (amount == null || !amount.isFinite || amount < 0) {
+      throw const FormatException(
+        "El servidor devolvió una tarifa estimada no válida.",
+      );
+    }
+    return amount;
   }
 }
 

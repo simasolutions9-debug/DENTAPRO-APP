@@ -107,6 +107,13 @@ class ClinicScheduleSlot(models.Model):
     )
     starts_at = models.DateTimeField()
     duration_minutes = models.PositiveSmallIntegerField(default=30)
+    estimated_fee = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        default=None,
+    )
     is_published = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 

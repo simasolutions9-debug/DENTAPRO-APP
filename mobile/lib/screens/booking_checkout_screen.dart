@@ -273,6 +273,7 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
           formattedDate: _formattedDate,
           selectedTime:
               _selectedSlot == null ? null : _timeLabel(_selectedSlot!),
+          estimatedFee: _selectedSlot?.estimatedFee,
           isLoading: _isBooking,
           canConfirm: !_isLoadingAvailability && _selectedSlot != null,
           onConfirm: _submitBooking,
@@ -462,6 +463,7 @@ class _BookingSummary extends StatelessWidget {
     required this.clinicName,
     required this.formattedDate,
     required this.selectedTime,
+    required this.estimatedFee,
     required this.isLoading,
     required this.canConfirm,
     required this.onConfirm,
@@ -470,6 +472,7 @@ class _BookingSummary extends StatelessWidget {
   final String clinicName;
   final String formattedDate;
   final String? selectedTime;
+  final double? estimatedFee;
   final bool isLoading;
   final bool canConfirm;
   final VoidCallback onConfirm;
@@ -580,6 +583,28 @@ class _BookingSummary extends StatelessWidget {
               ),
             ],
           ),
+          if (selectedTime != null) ...[
+            const SizedBox(height: 9),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "Tarifa estimada · no se realiza cobro",
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                ),
+                Text(
+                  estimatedFee == null
+                      ? "Tarifa pendiente"
+                      : "\$${estimatedFee!.toStringAsFixed(2)}",
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppColors.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 11),
           SizedBox(
             width: double.infinity,

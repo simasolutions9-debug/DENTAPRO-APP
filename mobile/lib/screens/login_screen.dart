@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 
 import "../app_theme.dart";
 import "../services/api_client.dart";
+import "../services/appointment_service.dart";
 import "../services/auth_service.dart";
 import "../widgets/dentapro_logo.dart";
 import "dentist_dashboard_screen.dart";
@@ -9,9 +10,14 @@ import "patient_registration_screen.dart";
 import "patient_dashboard_screen.dart";
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.authRepository});
+  const LoginScreen({
+    super.key,
+    this.authRepository,
+    this.appointmentsRepository,
+  });
 
   final AuthRepository? authRepository;
+  final AppointmentDashboardRepository? appointmentsRepository;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -47,8 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isSubmitting = false);
 
       final dashboard = switch (session.role) {
-        "paciente" => const PatientDashboardScreen(),
-        "dentista" => const DentistDashboardScreen(),
+        "paciente" => PatientDashboardScreen(
+            appointmentsRepository: widget.appointmentsRepository,
+          ),
+        "dentista" => DentistDashboardScreen(
+            appointmentsRepository: widget.appointmentsRepository,
+          ),
         _ => null,
       };
       if (dashboard == null) {
