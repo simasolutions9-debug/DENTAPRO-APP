@@ -18,12 +18,14 @@ class _FakeAuthRepository implements AuthRepository {
   String? submittedEmail;
   String? submittedPassword;
   Map<String, String>? submittedRegistration;
+  int loginCalls = 0;
 
   @override
   Future<AuthSession> login({
     required String email,
     required String password,
   }) async {
+    loginCalls++;
     submittedEmail = email;
     submittedPassword = password;
     if (failLogin) {
@@ -189,6 +191,27 @@ void main() {
     expect(find.byKey(const Key("login-password-field")), findsOneWidget);
     expect(find.text("Ingresar"), findsOneWidget);
     expect(find.text("Crear cuenta"), findsOneWidget);
+    expect(find.text("Entrar en Modo Demo (Sin conexión)"), findsOneWidget);
+  });
+
+  testWidgets("demo login bypasses HTTP and opens a mocked patient dashboard", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final authRepository = _FakeAuthRepository(failLogin: true);
+    await tester.pumpWidget(DentaproApp(authRepository: authRepository));
+
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+
+    expect(authRepository.loginCalls, 0);
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(find.text("Clínica Demo"), findsOneWidget);
+    expect(find.text("Consulta de demostración"), findsOneWidget);
   });
 
   testWidgets("login sends credentials and routes by role", (tester) async {

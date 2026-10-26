@@ -11,9 +11,11 @@ class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({
     super.key,
     this.appointmentsRepository,
+    this.displayName,
   });
 
   final AppointmentDashboardRepository? appointmentsRepository;
+  final String? displayName;
 
   @override
   State<PatientDashboardScreen> createState() => _PatientDashboardScreenState();
@@ -72,6 +74,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final displayName = widget.displayName?.trim();
     return Scaffold(
       bottomNavigationBar: NavigationBar(
         selectedIndex: 0,
@@ -119,7 +122,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
             ),
             const SizedBox(height: 25),
             Text(
-              "Hola",
+              displayName == null || displayName.isEmpty
+                  ? "Hola"
+                  : "Hola, $displayName",
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 5),

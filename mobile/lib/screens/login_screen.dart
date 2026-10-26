@@ -1,3 +1,4 @@
+import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
@@ -8,6 +9,31 @@ import "../widgets/dentapro_logo.dart";
 import "dentist_dashboard_screen.dart";
 import "patient_registration_screen.dart";
 import "patient_dashboard_screen.dart";
+
+class _DemoAppointmentDashboardRepository
+    implements AppointmentDashboardRepository {
+  @override
+  Future<List<AppointmentSummary>> fetchUpcomingAppointments() async => [
+        AppointmentSummary(
+          id: "demo-appointment",
+          patientId: "demo-patient",
+          patientName: "Paciente Demo",
+          clinicSlug: "clinica-demo",
+          clinicName: "Clínica Demo",
+          scheduledAt: DateTime.now().add(const Duration(days: 3)),
+          durationMinutes: 30,
+          status: "confirmed",
+          reason: "Consulta de demostración",
+        ),
+      ];
+
+  @override
+  Future<List<AppointmentSummary>> fetchClinicAppointments({
+    required DateTime from,
+    required DateTime to,
+  }) async =>
+      [];
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -74,6 +100,18 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isSubmitting = false);
       _showMessage(_messageFor(error));
     }
+  }
+
+  void _enterDemoMode() {
+    if (!kDebugMode) return;
+    Navigator.of(context).pushReplacement<void, void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PatientDashboardScreen(
+          displayName: "Paciente Demo",
+          appointmentsRepository: _DemoAppointmentDashboardRepository(),
+        ),
+      ),
+    );
   }
 
   String _messageFor(Object error) {
@@ -208,6 +246,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text("Ingresar"),
                         ),
                       ),
+                      if (kDebugMode)
+                        TextButton(
+                          key: const Key("demo-login-button"),
+                          onPressed: _isSubmitting ? null : _enterDemoMode,
+                          child: const Text(
+                            "Entrar en Modo Demo (Sin conexión)",
+                          ),
+                        ),
                       const SizedBox(height: 17),
                       Wrap(
                         alignment: WrapAlignment.center,
