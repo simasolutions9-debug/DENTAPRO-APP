@@ -10,9 +10,9 @@ workflows:
         script: |
           cd mobile
           flutter pub get
-      - name: Build Android APK
+           - name: Build Android APK
         script: |
           cd mobile
-          flutter build apk --release
+          flutter build apk --debug
     artifacts:
       - mobile/build/**/outputs/**/*.apk
