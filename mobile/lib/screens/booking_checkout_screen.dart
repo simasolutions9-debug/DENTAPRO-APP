@@ -2,6 +2,7 @@ import "package:flutter/material.dart";
 import "package:flutter_localizations/flutter_localizations.dart";
 
 import "../app_theme.dart";
+import "../demo/demo_data.dart";
 import "../services/api_client.dart";
 import "../services/appointment_service.dart";
 import "../services/clinic_service.dart";
@@ -14,12 +15,16 @@ class BookingCheckoutScreen extends StatefulWidget {
     required this.clinicName,
     this.availabilityRepository,
     this.appointmentRepository,
+    this.demoPatient,
+    this.demoAppointments,
   });
 
   final String clinicSlug;
   final String clinicName;
   final ClinicAvailabilityRepository? availabilityRepository;
   final AppointmentRepository? appointmentRepository;
+  final DemoPatient? demoPatient;
+  final List<AppointmentSummary>? demoAppointments;
 
   @override
   State<BookingCheckoutScreen> createState() => _BookingCheckoutScreenState();
@@ -138,7 +143,12 @@ class _BookingCheckoutScreenState extends State<BookingCheckoutScreen> {
       messenger.hideCurrentSnackBar();
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => const PatientDashboardScreen(),
+          builder: (_) => widget.demoPatient == null
+              ? const PatientDashboardScreen()
+              : PatientDashboardScreen(
+                  demoPatient: widget.demoPatient,
+                  demoAppointments: widget.demoAppointments,
+                ),
         ),
         (_) => false,
       );

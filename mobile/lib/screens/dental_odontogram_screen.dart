@@ -1,9 +1,18 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../demo/demo_data.dart";
+import "../services/appointment_service.dart";
 
-class DentalOdontogramScreen extends StatelessWidget {
-  const DentalOdontogramScreen({super.key});
+class OdontogramScreen extends StatelessWidget {
+  const OdontogramScreen({
+    super.key,
+    this.patient,
+    this.appointments = const [],
+  });
+
+  final DemoPatient? patient;
+  final List<AppointmentSummary> appointments;
 
   static const _upperTeeth = [
     _Tooth(18, _ToothCondition.healthy),
@@ -111,7 +120,9 @@ class DentalOdontogramScreen extends StatelessWidget {
             ),
             const SizedBox(height: 5),
             Text(
-              "Consulta el estado de tus piezas y tratamientos.",
+              patient == null
+                  ? "Consulta el estado de tus piezas y tratamientos."
+                  : "${patient!.name} · ${appointments.length} citas de ejemplo",
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 18),

@@ -210,8 +210,110 @@ void main() {
 
     expect(authRepository.loginCalls, 0);
     expect(find.text("Hola, Paciente Demo"), findsOneWidget);
-    expect(find.text("Clínica Demo"), findsOneWidget);
-    expect(find.text("Consulta de demostración"), findsOneWidget);
+    expect(find.text("Clínica Sonrisa"), findsOneWidget);
+    expect(find.text("Control de rutina"), findsOneWidget);
+  });
+
+  testWidgets("demo bottom navigation switches tabs and selection state", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+
+    final navigationBar = find.byType(NavigationBar);
+    expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
+
+    await tester.tap(find.text("Citas"));
+    await tester.pumpAndSettle();
+    expect(find.text("Mis citas"), findsOneWidget);
+    expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 1);
+    expect(find.text("Control de rutina"), findsOneWidget);
+
+    await tester.tap(find.text("Perfil"));
+    await tester.pumpAndSettle();
+    expect(find.text("Mi perfil"), findsOneWidget);
+    expect(find.text("Paciente Demo"), findsOneWidget);
+    expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 2);
+
+    await tester.tap(find.text("Inicio"));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+    expect(tester.widget<NavigationBar>(navigationBar).selectedIndex, 0);
+  });
+
+  testWidgets("demo quick actions push local screens and return to dashboard", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text("Odontograma"));
+    await tester.tap(find.text("Odontograma"));
+    await tester.pumpAndSettle();
+    expect(find.text("Paciente Demo · 2 citas de ejemplo"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+
+    await tester.ensureVisible(find.text("Historial"));
+    await tester.tap(find.text("Historial"));
+    await tester.pumpAndSettle();
+    expect(find.text("Historial de Paciente Demo"), findsOneWidget);
+    expect(find.text("Limpieza y revisión"), findsOneWidget);
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text("Pagos"));
+    await tester.tap(find.text("Pagos"));
+    await tester.pumpAndSettle();
+    expect(find.text("Pagos de Paciente Demo"), findsOneWidget);
+    expect(
+      find.text("Vista de demostración. No se realizan cobros."),
+      findsOneWidget,
+    );
+    await tester.tap(find.byTooltip("Volver"));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
+  });
+
+  testWidgets("demo clinic booking stays on injected local data",
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const DentaproApp());
+    await tester.tap(find.byKey(const Key("demo-login-button")));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip("Buscar clínicas"));
+    await tester.pumpAndSettle();
+    expect(find.text("Clínica Sonrisa"), findsOneWidget);
+
+    await tester.tap(find.text("Clínica Sonrisa"));
+    await tester.pumpAndSettle();
+    expect(find.text("Reserva tu cita"), findsOneWidget);
+    expect(find.text("10:00"), findsOneWidget);
+
+    await tester.tap(find.text("10:00"));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text("Confirmar cita"));
+    await tester.tap(find.text("Confirmar cita"));
+    await tester.pumpAndSettle();
+    expect(find.text("Hola, Paciente Demo"), findsOneWidget);
   });
 
   testWidgets("login sends credentials and routes by role", (tester) async {
@@ -373,7 +475,7 @@ void main() {
     expect(find.text("Accesos rápidos"), findsOneWidget);
   });
 
-  testWidgets("patient quick access opens the mock odontogram and history", (
+  testWidgets("patient quick access opens odontogram and appointment history", (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -381,7 +483,19 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await _loginAs(tester);
+    await _loginAs(
+      tester,
+      appointmentsRepository: _FakeAppointmentDashboardRepository(
+        upcoming: [
+          _appointment(
+            id: "history",
+            patientName: "Paciente",
+            scheduledAt: DateTime.now().add(const Duration(days: 3)),
+            reason: "Limpieza y revisión",
+          ),
+        ],
+      ),
+    );
     await tester.tap(find.text("Odontograma"));
     await tester.pumpAndSettle();
 
@@ -393,16 +507,9 @@ void main() {
     await tester.tap(find.text("Historial"));
     await tester.pumpAndSettle();
 
-    expect(find.text("Odontograma"), findsOneWidget);
-    expect(find.byKey(const Key("odontogram-chart")), findsOneWidget);
-    expect(find.text("ARCADA SUPERIOR"), findsOneWidget);
-    expect(find.text("Sanos"), findsOneWidget);
-    expect(find.text("Revisión"), findsNWidgets(2));
-    expect(find.text("Urgencia"), findsNWidgets(2));
-    expect(find.text("Historial de Tratamientos"), findsOneWidget);
-    expect(find.text("Limpieza dental"), findsOneWidget);
-    expect(find.text("Dra. Valentina Ortiz"), findsWidgets);
-    expect(find.text("24 oct 2026"), findsOneWidget);
+    expect(find.text("Historial de citas"), findsOneWidget);
+    expect(find.text("Limpieza y revisión"), findsOneWidget);
+    expect(find.text("Clínica Norte"), findsOneWidget);
   });
 
   testWidgets("clinic catalog loads clinics from its repository", (

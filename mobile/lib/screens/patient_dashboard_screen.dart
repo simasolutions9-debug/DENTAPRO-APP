@@ -1,21 +1,27 @@
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../demo/demo_data.dart";
 import "../services/api_client.dart";
 import "../services/appointment_service.dart";
 import "../widgets/dentapro_logo.dart";
 import "clinic_catalog_screen.dart";
 import "dental_odontogram_screen.dart";
+import "patient_secondary_screens.dart";
 
 class PatientDashboardScreen extends StatefulWidget {
   const PatientDashboardScreen({
     super.key,
     this.appointmentsRepository,
     this.displayName,
+    this.demoPatient,
+    this.demoAppointments,
   });
 
   final AppointmentDashboardRepository? appointmentsRepository;
   final String? displayName;
+  final DemoPatient? demoPatient;
+  final List<AppointmentSummary>? demoAppointments;
 
   @override
   State<PatientDashboardScreen> createState() => _PatientDashboardScreenState();
@@ -26,13 +32,44 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
       widget.appointmentsRepository ?? AppointmentService();
 
   AppointmentSummary? _nextAppointment;
+  List<AppointmentSummary> _appointments = const [];
   bool _isLoading = true;
   String? _error;
+  int _selectedTabIndex = 0;
+
+  bool get _isDemoMode =>
+      widget.demoPatient != null || widget.displayName != null;
+
+  DemoPatient? get _patientForRoutes {
+    if (widget.demoPatient != null) return widget.demoPatient;
+    final name = widget.displayName?.trim();
+    if (name == null || name.isEmpty) return null;
+    return DemoPatient(
+      id: "demo-patient",
+      name: name,
+      email: "paciente.demo@dentapro.local",
+      phone: "099 000 0000",
+    );
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadUpcomingAppointment();
+    if (_isDemoMode) {
+      _appointments = List.unmodifiable(widget.demoAppointments ?? const []);
+      final upcoming = _appointments
+          .where(
+            (appointment) =>
+                appointment.status != "cancelled" &&
+                appointment.scheduledAt.isAfter(DateTime.now()),
+          )
+          .toList()
+        ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      _nextAppointment = upcoming.isEmpty ? null : upcoming.first;
+      _isLoading = false;
+    } else {
+      _loadUpcomingAppointment();
+    }
   }
 
   Future<void> _loadUpcomingAppointment() async {
@@ -45,6 +82,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
           await _appointmentsRepository.fetchUpcomingAppointments();
       if (!mounted) return;
       setState(() {
+        _appointments = appointments;
         _nextAppointment = appointments.isEmpty ? null : appointments.first;
         _isLoading = false;
       });
@@ -74,112 +112,154 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final displayName = widget.displayName?.trim();
+    final displayName = _patientForRoutes?.name ?? widget.displayName?.trim();
     return Scaffold(
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (index) {
-          if (index == 1) {
-            _showComingSoon(context, "Tus citas");
-          } else if (index == 2) {
-            _showComingSoon(context, "Tu perfil");
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: "Inicio",
+      bottomNavigationBar: NavigationBarTheme(
+        data: NavigationBarThemeData(
+          indicatorColor: AppColors.teal.withValues(alpha: 0.14),
+          iconTheme: WidgetStateProperty.resolveWith(
+            (states) => IconThemeData(
+              color: states.contains(WidgetState.selected)
+                  ? AppColors.teal
+                  : AppColors.muted,
+            ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month_rounded),
-            label: "Citas",
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (states) => Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: states.contains(WidgetState.selected)
+                      ? AppColors.navy
+                      : AppColors.muted,
+                  fontWeight: states.contains(WidgetState.selected)
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                ),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded),
-            label: "Perfil",
-          ),
-        ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedTabIndex,
+          onDestinationSelected: (index) =>
+              setState(() => _selectedTabIndex = index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: "Inicio",
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month_rounded),
+              label: "Citas",
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: "Perfil",
+            ),
+          ],
+        ),
       ),
       body: SafeArea(
         bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
+        child: IndexedStack(
+          index: _selectedTabIndex,
           children: [
-            _DashboardHeader(
-              onSearchTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ClinicCatalogScreen(),
-                  ),
-                );
-              },
-              onNotificationsTap: () {
-                _showComingSoon(context, "Las notificaciones");
-              },
+            _buildHomeTab(context, displayName),
+            PatientAppointmentsTab(
+              patient: _patientForRoutes,
+              appointments: _appointments,
             ),
-            const SizedBox(height: 25),
-            Text(
-              displayName == null || displayName.isEmpty
-                  ? "Hola"
-                  : "Hola, $displayName",
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 5),
-            Text(
-              "Tu salud dental, al día.",
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 22),
-            _NextAppointmentCard(
-              appointment: _nextAppointment,
-              isLoading: _isLoading,
-              error: _error,
-              onRetry: _loadUpcomingAppointment,
-              onTap: _nextAppointment == null
-                  ? null
-                  : () => _showComingSoon(context, "El detalle de la cita"),
-            ),
-            const SizedBox(height: 27),
-            _SectionHeading(
-              title: "Accesos rápidos",
-              actionLabel: "Ver todo",
-              onAction: () => _showComingSoon(context, "Tus accesos"),
-            ),
-            const SizedBox(height: 13),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.grid_view_rounded,
-                    label: "Odontograma",
-                    tint: AppColors.teal,
-                    onTap: () => _openOdontogram(context),
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.assignment_outlined,
-                    label: "Historial",
-                    tint: AppColors.cyan,
-                    onTap: () => _openOdontogram(context),
-                  ),
-                ),
-                const SizedBox(width: 11),
-                Expanded(
-                  child: _QuickAction(
-                    icon: Icons.credit_card_outlined,
-                    label: "Pagos",
-                    tint: AppColors.blue,
-                    onTap: () => _showComingSoon(context, "Tus pagos"),
-                  ),
-                ),
-              ],
+            PatientProfileTab(
+              patient: _patientForRoutes,
+              appointments: _appointments,
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeTab(BuildContext context, String? displayName) => ListView(
+        padding: const EdgeInsets.fromLTRB(22, 14, 22, 28),
+        children: [
+          _DashboardHeader(
+            onSearchTap: () => _openClinicCatalog(context),
+            onNotificationsTap: () {
+              _showComingSoon(context, "Las notificaciones");
+            },
+          ),
+          const SizedBox(height: 25),
+          Text(
+            displayName == null || displayName.isEmpty
+                ? "Hola"
+                : "Hola, $displayName",
+            style: Theme.of(context).textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 5),
+          Text(
+            "Tu salud dental, al día.",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 22),
+          _NextAppointmentCard(
+            appointment: _nextAppointment,
+            isLoading: _isLoading,
+            error: _error,
+            onRetry: _loadUpcomingAppointment,
+            onTap:
+                _nextAppointment == null ? null : () => _openHistory(context),
+          ),
+          const SizedBox(height: 27),
+          _SectionHeading(
+            title: "Accesos rápidos",
+            actionLabel: "Ver todo",
+            onAction: () => setState(() => _selectedTabIndex = 1),
+          ),
+          const SizedBox(height: 13),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.grid_view_rounded,
+                  label: "Odontograma",
+                  tint: AppColors.teal,
+                  onTap: () => _openOdontogram(context),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.assignment_outlined,
+                  label: "Historial",
+                  tint: AppColors.cyan,
+                  onTap: () => _openHistory(context),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: _QuickAction(
+                  icon: Icons.credit_card_outlined,
+                  label: "Pagos",
+                  tint: AppColors.blue,
+                  onTap: () => _openPayments(context),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+
+  void _openClinicCatalog(BuildContext context) {
+    final demoMode = _isDemoMode;
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ClinicCatalogScreen(
+          clinicRepository: demoMode ? const DemoClinicRepository() : null,
+          availabilityRepository:
+              demoMode ? const DemoClinicAvailabilityRepository() : null,
+          appointmentRepository:
+              demoMode ? const DemoAppointmentRepository() : null,
+          demoPatient: demoMode ? _patientForRoutes : null,
+          demoAppointments: demoMode ? _appointments : null,
         ),
       ),
     );
@@ -188,7 +268,32 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   void _openOdontogram(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => const DentalOdontogramScreen(),
+        builder: (_) => OdontogramScreen(
+          patient: _patientForRoutes,
+          appointments: _appointments,
+        ),
+      ),
+    );
+  }
+
+  void _openHistory(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => HistoryScreen(
+          patient: _patientForRoutes,
+          appointments: _appointments,
+        ),
+      ),
+    );
+  }
+
+  void _openPayments(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PaymentsScreen(
+          patient: _patientForRoutes,
+          appointments: _appointments,
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import "package:flutter/foundation.dart";
 import "package:flutter/material.dart";
 
 import "../app_theme.dart";
+import "../demo/demo_data.dart";
 import "../services/api_client.dart";
 import "../services/appointment_service.dart";
 import "../services/auth_service.dart";
@@ -9,31 +10,6 @@ import "../widgets/dentapro_logo.dart";
 import "dentist_dashboard_screen.dart";
 import "patient_registration_screen.dart";
 import "patient_dashboard_screen.dart";
-
-class _DemoAppointmentDashboardRepository
-    implements AppointmentDashboardRepository {
-  @override
-  Future<List<AppointmentSummary>> fetchUpcomingAppointments() async => [
-        AppointmentSummary(
-          id: "demo-appointment",
-          patientId: "demo-patient",
-          patientName: "Paciente Demo",
-          clinicSlug: "clinica-demo",
-          clinicName: "Clínica Demo",
-          scheduledAt: DateTime.now().add(const Duration(days: 3)),
-          durationMinutes: 30,
-          status: "confirmed",
-          reason: "Consulta de demostración",
-        ),
-      ];
-
-  @override
-  Future<List<AppointmentSummary>> fetchClinicAppointments({
-    required DateTime from,
-    required DateTime to,
-  }) async =>
-      [];
-}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -104,11 +80,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _enterDemoMode() {
     if (!kDebugMode) return;
+    final appointments = buildDemoAppointments();
     Navigator.of(context).pushReplacement<void, void>(
       MaterialPageRoute<void>(
         builder: (_) => PatientDashboardScreen(
-          displayName: "Paciente Demo",
-          appointmentsRepository: _DemoAppointmentDashboardRepository(),
+          demoPatient: demoPatient,
+          demoAppointments: appointments,
         ),
       ),
     );
